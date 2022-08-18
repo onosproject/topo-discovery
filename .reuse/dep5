@@ -1,0 +1,5 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+
+Files: .gitreview  go.mod go.sum bin/* build/build-tools docs/images/*  /vendor/*  build/_output/* vendor
+Copyright: 2022-present Intel Corporation
+License: Apache-2.0

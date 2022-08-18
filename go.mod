@@ -3,13 +3,24 @@ module github.com/onosproject/topo-discovery
 go 1.19
 
 require (
+	github.com/atomix/atomix-go-client v0.6.2
+	github.com/onosproject/onos-api/go v0.9.35
 	github.com/onosproject/onos-lib-go v0.9.0
+	github.com/onosproject/onos-topo v0.9.7
 	github.com/spf13/cobra v1.5.0
+	github.com/stretchr/testify v1.8.0
+	google.golang.org/grpc v1.48.0
 )
 
 require (
 	github.com/Shopify/sarama v1.31.1 // indirect
+	github.com/atomix/atomix-api/go v0.4.9 // indirect
+	github.com/atomix/atomix-go-framework v0.10.1 // indirect
+	github.com/atomix/atomix-go-local v0.8.0 // indirect
 	github.com/atomix/runtime/sdk v0.3.4 // indirect
+	github.com/bits-and-blooms/bitset v1.2.0 // indirect
+	github.com/bits-and-blooms/bloom/v3 v3.0.1 // indirect
+	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/eapache/go-resiliency v1.2.0 // indirect
 	github.com/eapache/go-xerial-snappy v0.0.0-20180814174437-776d5712da21 // indirect
@@ -18,8 +29,10 @@ require (
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
+	github.com/golang/mock v1.6.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
+	github.com/google/uuid v1.3.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0 // indirect
 	github.com/hashicorp/go-uuid v1.0.2 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
@@ -36,6 +49,7 @@ require (
 	github.com/pelletier/go-toml v1.9.4 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.0-beta.8 // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/spf13/afero v1.8.2 // indirect
@@ -43,7 +57,6 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.11.0 // indirect
-	github.com/stretchr/testify v1.8.0 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
@@ -55,7 +68,6 @@ require (
 	golang.org/x/text v0.3.7 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20220803205849-8f55acc8769f // indirect
-	google.golang.org/grpc v1.48.0 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/ini.v1 v1.66.4 // indirect
 	gopkg.in/square/go-jose.v1 v1.1.2 // indirect

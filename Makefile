@@ -14,7 +14,6 @@ TOPO_DISCOVERY_APP_VERSION ?= latest
 build-tools:=$(shell if [ ! -d "./build/build-tools" ]; then mkdir -p build && cd build && git clone https://github.com/onosproject/build-tools.git; fi)
 include ./build/build-tools/make/onf-common.mk
 
-
 mod-update: # @HELP Download the dependencies to the vendor folder
 	go mod tidy
 	go mod vendor
@@ -35,13 +34,14 @@ test: mod-lint build linters license
 	go test -race github.com/onosproject/topo-discovery/...
 
 
-topo-discovery-app-docker:  # @HELP build topo-discovery base Docker image
+topo-discovery-app-docker: mod-update # @HELP build topo-discovery base Docker image
 	docker build --platform linux/amd64 . -f build/topo-discovery/Dockerfile \
 		-t ${DOCKER_REPOSITORY}topo-discovery:${TOPO_DISCOVERY_APP_VERSION}
 
 images: # @HELP build all Docker images
 images: topo-discovery-app-docker
 
+all: build images
 
 publish: images
 	docker push onosproject/topo-discovery:latest

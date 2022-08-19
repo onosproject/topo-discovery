@@ -35,13 +35,14 @@ test: mod-lint build linters license
 	go test -race github.com/onosproject/topo-discovery/...
 
 
-topo-discovery-app-docker:  # @HELP build topo-discovery base Docker image
+topo-discovery-app-docker: mod-update # @HELP build topo-discovery base Docker image
 	docker build --platform linux/amd64 . -f build/topo-discovery/Dockerfile \
 		-t ${DOCKER_REPOSITORY}topo-discovery:${TOPO_DISCOVERY_APP_VERSION}
 
 images: # @HELP build all Docker images
 images: topo-discovery-app-docker
 
+all: build images
 
 publish: images
 	docker push onosproject/topo-discovery:latest

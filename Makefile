@@ -14,7 +14,6 @@ TOPO_DISCOVERY_APP_VERSION ?= latest
 build-tools:=$(shell if [ ! -d "./build/build-tools" ]; then mkdir -p build && cd build && git clone https://github.com/onosproject/build-tools.git; fi)
 include ./build/build-tools/make/onf-common.mk
 
-
 mod-update: # @HELP Download the dependencies to the vendor folder
 	go mod tidy
 	go mod vendor

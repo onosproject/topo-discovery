@@ -6,9 +6,8 @@ require (
 	github.com/atomix/atomix-go-client v0.6.2
 	github.com/onosproject/onos-api/go v0.9.36
 	github.com/onosproject/onos-lib-go v0.9.0
-	github.com/onosproject/onos-p4-sdk v0.1.10
+	github.com/onosproject/onos-p4-sdk v0.1.11
 	github.com/onosproject/onos-topo v0.9.7
-	github.com/p4lang/p4runtime v1.4.0-rc.5
 	github.com/spf13/cobra v1.5.0
 	github.com/stretchr/testify v1.8.0
 	google.golang.org/grpc v1.48.0
@@ -48,6 +47,7 @@ require (
 	github.com/magiconair/properties v1.8.6 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.4.3 // indirect
+	github.com/p4lang/p4runtime v1.4.0-rc.5 // indirect
 	github.com/pelletier/go-toml v1.9.4 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.0-beta.8 // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect

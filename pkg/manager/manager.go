@@ -5,8 +5,11 @@
 package manager
 
 import (
+	"github.com/onosproject/onos-lib-go/pkg/certs"
 	"github.com/onosproject/onos-lib-go/pkg/logging"
 	"github.com/onosproject/onos-lib-go/pkg/northbound"
+	"github.com/onosproject/onos-p4-sdk/pkg/p4rt/appsdk"
+	"github.com/onosproject/topo-discovery/pkg/store/topo"
 )
 
 var log = logging.GetLogger()
@@ -46,7 +49,25 @@ func (m *Manager) Run() {
 
 func (m *Manager) start() error {
 
-	err := m.startNorthboundServer()
+	opts, err := certs.HandleCertPaths(m.Config.CAPath, m.Config.KeyPath, m.Config.CertPath, true)
+	if err != nil {
+		return err
+	}
+
+	appsdk.StartController(appsdk.Config{
+		CAPath:      m.Config.CAPath,
+		CertPath:    m.Config.CertPath,
+		KeyPath:     m.Config.KeyPath,
+		TopoAddress: m.Config.TopoAddress,
+	})
+
+	// Create new topo store
+	_, err = topo.NewStore(m.Config.TopoAddress, opts...)
+	if err != nil {
+		return err
+	}
+
+	err = m.startNorthboundServer()
 	if err != nil {
 		return err
 	}

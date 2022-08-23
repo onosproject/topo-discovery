@@ -38,6 +38,7 @@ topo-discovery-app-docker: mod-update # @HELP build topo-discovery base Docker i
 	docker build --platform linux/amd64 . -f build/topo-discovery/Dockerfile \
 		-t ${DOCKER_REPOSITORY}topo-discovery:${TOPO_DISCOVERY_APP_VERSION}
 
+
 images: # @HELP build all Docker images
 images: topo-discovery-app-docker
 

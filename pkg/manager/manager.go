@@ -9,6 +9,7 @@ import (
 	"github.com/onosproject/onos-lib-go/pkg/logging"
 	"github.com/onosproject/onos-lib-go/pkg/northbound"
 	"github.com/onosproject/onos-p4-sdk/pkg/p4rt/appsdk"
+	"github.com/onosproject/topo-discovery/pkg/controller/port"
 	"github.com/onosproject/topo-discovery/pkg/store/topo"
 )
 
@@ -62,7 +63,12 @@ func (m *Manager) start() error {
 	})
 
 	// Create new topo store
-	_, err = topo.NewStore(m.Config.TopoAddress, opts...)
+	topoStore, err := topo.NewStore(m.Config.TopoAddress, opts...)
+	if err != nil {
+		return err
+	}
+
+	err = m.startPortController(topoStore)
 	if err != nil {
 		return err
 	}
@@ -97,4 +103,9 @@ func (m *Manager) startNorthboundServer() error {
 		}
 	}()
 	return <-doneCh
+}
+
+func (m *Manager) startPortController(topo topo.Store) error {
+	portController := port.NewController(topo)
+	return portController.Start()
 }

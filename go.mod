@@ -5,11 +5,11 @@ go 1.19
 require (
 	github.com/atomix/atomix-go-client v0.6.2
 	github.com/gogo/protobuf v1.3.2
-	github.com/onosproject/onos-api/go v0.9.36
+	github.com/onosproject/onos-api/go v0.9.40
 	github.com/onosproject/onos-lib-go v0.9.0
 	github.com/onosproject/onos-p4-sdk v0.1.11
 	github.com/onosproject/onos-topo v0.9.7
-	github.com/openconfig/gnmi v0.0.0-20200617225440-d2b4e6a45802
+	github.com/openconfig/gnmi v0.0.0-20220617175856-41246b1b3507
 	github.com/spf13/cobra v1.5.0
 	github.com/stretchr/testify v1.8.0
 	google.golang.org/grpc v1.48.0
@@ -78,5 +78,3 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/onosproject/onos-api/go => /Users/arastega/go/src/github.com/onosproject/onos-api/go

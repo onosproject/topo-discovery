@@ -16,6 +16,7 @@ func GetPortID(targetID string, portID string) topoapi.ID {
 		uri.WithOpaque(opaque)).String())
 }
 
+// GetContainPortRelationID  creates a CONTAIN port relation ID
 func GetContainPortRelationID(targetEntityID, portEntityID topoapi.ID) topoapi.ID {
 	opaque := targetEntityID + "/" + portEntityID
 	return topoapi.ID(uri.NewURI(

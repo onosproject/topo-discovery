@@ -10,6 +10,7 @@ import (
 	"github.com/onosproject/onos-lib-go/pkg/northbound"
 	"github.com/onosproject/onos-p4-sdk/pkg/p4rt/appsdk"
 	"github.com/onosproject/topo-discovery/pkg/controller/port"
+	"github.com/onosproject/topo-discovery/pkg/controller/portrelation"
 	"github.com/onosproject/topo-discovery/pkg/store/topo"
 )
 
@@ -73,6 +74,11 @@ func (m *Manager) start() error {
 		return err
 	}
 
+	err = m.startPortRelationController(topoStore)
+	if err != nil {
+		return err
+	}
+
 	err = m.startNorthboundServer()
 	if err != nil {
 		return err
@@ -108,4 +114,9 @@ func (m *Manager) startNorthboundServer() error {
 func (m *Manager) startPortController(topo topo.Store) error {
 	portController := port.NewController(topo)
 	return portController.Start()
+}
+
+func (m *Manager) startPortRelationController(topo topo.Store) error {
+	portRelationController := portrelation.NewController(topo)
+	return portRelationController.Start()
 }

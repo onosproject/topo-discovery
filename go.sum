@@ -773,14 +773,14 @@ github.com/olekukonko/tablewriter v0.0.4/go.mod h1:zq6QwlOf5SlnkVbMSr5EoBv3636FW
 github.com/olekukonko/tablewriter v0.0.5/go.mod h1:hPp6KlRPjbx+hW8ykQs1w3UBbZlj6HuIJcUGPhkA7kY=
 github.com/onosproject/helmit v0.6.19/go.mod h1:4LUwMtLcV0njiCEcAoVdzoiRfit+04z4Yn7z8lXSuMk=
 github.com/onosproject/onos-api/go v0.9.22/go.mod h1:0hdMkFFN2AyKLHMiJVP3ZE61QgSYfNXHiI4BJ/Ry7UI=
-github.com/onosproject/onos-api/go v0.9.36 h1:x5M6UNjwVOUawDmR5WQ/JN89Ud1LWTQ/hd6+zm/gJfQ=
-github.com/onosproject/onos-api/go v0.9.36/go.mod h1:0hdMkFFN2AyKLHMiJVP3ZE61QgSYfNXHiI4BJ/Ry7UI=
+github.com/onosproject/onos-api/go v0.9.40 h1:/jn5PXVYBWGLpvZOv7T/yrQoL76sRilGL6B7z2+P7cQ=
+github.com/onosproject/onos-api/go v0.9.40/go.mod h1:0hdMkFFN2AyKLHMiJVP3ZE61QgSYfNXHiI4BJ/Ry7UI=
 github.com/onosproject/onos-lib-go v0.8.1/go.mod h1:1klcUPfLoXPVu4fzM/sYi1V3Pggm2NRbY2fTzG2W1HY=
 github.com/onosproject/onos-lib-go v0.8.16/go.mod h1:rWssBjfhahhHQy4wW5PBUtjTPwJlXAixHxgfq/3PO3E=
 github.com/onosproject/onos-lib-go v0.9.0 h1:RM6wdrJAwP4WdWSGZWPE6ge9SCh1kDLeFhRBPbfheOc=
 github.com/onosproject/onos-lib-go v0.9.0/go.mod h1:ZpuQW6Kpjn12igx6njGjqr1w4KDaEg824vR2zL33kj4=
-github.com/onosproject/onos-p4-sdk v0.1.11 h1:ZmmpqbM6UlLhp7RQPnowLc7ibqX37ntvI4BKzAYcFSU=
-github.com/onosproject/onos-p4-sdk v0.1.11/go.mod h1:C8JhskRzeRE/HVygUqgvosm7x12630Eu/Q76i34dM/g=
+github.com/onosproject/onos-p4-sdk v0.1.12 h1:0Ttwg5jt0fzAVuW53sY/kb03GlYB43CHN3oJQo1v1IA=
+github.com/onosproject/onos-p4-sdk v0.1.12/go.mod h1:C8JhskRzeRE/HVygUqgvosm7x12630Eu/Q76i34dM/g=
 github.com/onosproject/onos-test v0.6.6/go.mod h1:rC8K2TvTewH2EAh1rYZV38Qwwtpziw4p7wkLubPw7hI=
 github.com/onosproject/onos-topo v0.9.7 h1:v2MCrAtxjAp0gBzAUtAdnThXXbOhQwXcbcH3g2Tzdcw=
 github.com/onosproject/onos-topo v0.9.7/go.mod h1:3k38hU9sohjUxj+BWmYlSMhUuBvxcn84VLcsC8RbCC8=
@@ -799,6 +799,8 @@ github.com/onsi/gomega v1.7.1/go.mod h1:XdKZgCCFLUoM/7CFJVPcG8C1xQ1AJ0vpAezJrB7J
 github.com/onsi/gomega v1.10.1/go.mod h1:iN09h71vgCQne3DLsj+A5owkum+a2tYe+TOCB1ybHNo=
 github.com/onsi/gomega v1.10.3/go.mod h1:V9xEwhxec5O8UDM77eCW8vLymOMltsqPVYWrpDsH8xc=
 github.com/openconfig/gnmi v0.0.0-20200617225440-d2b4e6a45802/go.mod h1:M/EcuapNQgvzxo1DDXHK4tx3QpYM/uG4l591v33jG2A=
+github.com/openconfig/gnmi v0.0.0-20220617175856-41246b1b3507 h1:tv9HygDMXnoGyWuLmNCodMV2+PK6+uT/ndAxDVzsUUQ=
+github.com/openconfig/gnmi v0.0.0-20220617175856-41246b1b3507/go.mod h1:ycJVRtLs20E2c1WD+9oacgxbrBFwQygd8/uaOuGMlfc=
 github.com/openconfig/goyang v0.0.0-20200115183954-d0a48929f0ea/go.mod h1:dhXaV0JgHJzdrHi2l+w0fZrwArtXL7jEFoiqLEdmkvU=
 github.com/openconfig/ygot v0.6.0/go.mod h1:o30svNf7O0xK+R35tlx95odkDmZWS9JyWWQSmIhqwAs=
 github.com/opencontainers/go-digest v0.0.0-20170106003457-a6d0ee40d420/go.mod h1:cMLVZDEM3+U2I4VmLI6N8jQYUd2OVphdqWwCJHrFt2s=

@@ -73,7 +73,7 @@ func (r *Reconciler) extractPorts(notification []*gnmi.Notification, targetID to
 	return ports, nil
 }
 
-// Reconcile reconciles port entities
+// Reconcile reconciles port entities for a programmable target
 func (r *Reconciler) Reconcile(id controller.ID) (controller.Result, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()

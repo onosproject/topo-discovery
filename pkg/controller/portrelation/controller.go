@@ -39,7 +39,7 @@ type Reconciler struct {
 	topo topo.Store
 }
 
-// Reconcile reconciles port CONTAIN relations
+// Reconcile reconciles port CONTAIN relations with programmable entity
 func (r *Reconciler) Reconcile(id controller.ID) (controller.Result, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
@@ -61,6 +61,19 @@ func (r *Reconciler) Reconcile(id controller.ID) (controller.Result, error) {
 		return controller.Result{}, err
 	}
 
+	_, err = r.topo.Get(ctx, topoapi.ID(portAspect.TargetID))
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			log.Warnw("Failed reconciling port CONTAIN relation", logPortEntityID, portEntityID, "error", err)
+			return controller.Result{}, err
+		}
+		if ok, err := r.deletePortEntity(ctx, portEntity); err != nil {
+			return controller.Result{}, err
+		} else if ok {
+			return controller.Result{}, nil
+		}
+	}
+
 	if ok, err := r.createPortRelation(ctx, topoapi.ID(portAspect.TargetID), portEntityID); err != nil {
 		return controller.Result{}, err
 	} else if ok {
@@ -68,6 +81,18 @@ func (r *Reconciler) Reconcile(id controller.ID) (controller.Result, error) {
 	}
 
 	return controller.Result{}, nil
+}
+func (r *Reconciler) deletePortEntity(ctx context.Context, portEntity *topoapi.Object) (bool, error) {
+	err := r.topo.Delete(ctx, portEntity)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			log.Errorw("Failed deleting port entity", logPortEntityID, portEntity.ID, "error", err)
+			return false, err
+		}
+		log.Warnf("Failed deleting port entity", logPortEntityID, portEntity.ID, "error", err)
+		return false, nil
+	}
+	return true, nil
 }
 
 func (r *Reconciler) createPortRelation(ctx context.Context, targetID topoapi.ID, portEntityID topoapi.ID) (bool, error) {

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package port
+package link
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	"github.com/onosproject/onos-lib-go/pkg/controller"
 	"github.com/onosproject/onos-lib-go/pkg/errors"
 	"github.com/onosproject/onos-lib-go/pkg/logging"
+	"github.com/onosproject/topo-discovery/pkg/controller/types"
 	"github.com/onosproject/topo-discovery/pkg/controller/utils"
 	"github.com/onosproject/topo-discovery/pkg/store/topo"
 	"github.com/openconfig/gnmi/proto/gnmi"
@@ -25,14 +26,14 @@ var log = logging.GetLogger()
 
 const (
 	defaultTimeout  = 30 * time.Second
-	logPortEntityID = "Port entity ID"
+	logLinkEntityID = "Link entity ID"
 	logTargetID     = "TargetID"
-	interfacesPath  = "openconfig-interfaces:interfaces"
+	interfacesPath  = "openconfig-interfaces:interfaces/interface"
 )
 
 // NewController returns a new gNMI connection  controller
 func NewController(topo topo.Store) *controller.Controller {
-	c := controller.NewController("port")
+	c := controller.NewController("link")
 	c.Watch(&TopoWatcher{
 		topo: topo,
 	})
@@ -47,30 +48,41 @@ type Reconciler struct {
 	topo topo.Store
 }
 
-func (r *Reconciler) extractPorts(notification []*gnmi.Notification, targetID topoapi.ID) ([]*topoapi.PhyPort, error) {
-	var ports []*topoapi.PhyPort
-	notificationMap := make(map[string]interface{})
-
-	err := json.Unmarshal(notification[0].Update[0].Val.GetJsonIetfVal(), &notificationMap)
+func (r *Reconciler) unmarshalNotifications(notification []*gnmi.Notification) (types.OpenconfigInterfacesInterfacesInterface, error) {
+	var interfaces types.OpenconfigInterfacesInterfacesInterface
+	err := json.Unmarshal(notification[0].Update[0].Val.GetJsonIetfVal(), &interfaces)
 	if err != nil {
-		return nil, err
+		return interfaces, err
 	}
+	return interfaces, nil
+}
 
-	interfacesMap := notificationMap[interfacesPath].(map[string]interface{})
-	interfaces := interfacesMap["interface"].([]interface{})
-	for _, v := range interfaces {
-		mapValue := v.(map[string]interface{})
-		port := &topoapi.PhyPort{}
-		for key, value := range mapValue {
-			if key == "name" {
-				port.DisplayName = value.(string)
-				port.TargetID = string(targetID)
+func (r *Reconciler) extractLinks(interfaces types.OpenconfigInterfacesInterfacesInterface) ([]*topoapi.Link, error) {
+	var links []*topoapi.Link
+	for _, interfaceVal := range interfaces.OpenconfigInterfacesInterface {
+		subInterfaces := interfaceVal.Subinterfaces.Subinterface
+		for _, subInterface := range subInterfaces {
+			subIntAddresses := subInterface.OpenconfigIfIPIpv4.Addresses.Address
+			subIntNeighbors := subInterface.OpenconfigIfIPIpv4.Neighbors.Neighbor
+			if len(subIntNeighbors) != 0 {
+				for _, neighbor := range subIntNeighbors {
+					link := &topoapi.Link{
+						SourceIP: &topoapi.IPAddress{
+							Type: topoapi.IPAddress_IPV4,
+							IP:   subIntAddresses[0].IP,
+						},
+						DestinationIP: &topoapi.IPAddress{
+							Type: topoapi.IPAddress_IPV4,
+							IP:   neighbor.IP,
+						},
+					}
+					links = append(links, link)
+				}
 			}
 		}
-		ports = append(ports, port)
 	}
 
-	return ports, nil
+	return links, nil
 }
 
 // Reconcile reconciles port entities for a programmable target
@@ -78,7 +90,7 @@ func (r *Reconciler) Reconcile(id controller.ID) (controller.Result, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
 	targetID := id.Value.(topoapi.ID)
-	log.Infow("Reconciling Ports for target", logTargetID, targetID)
+	log.Infow("Reconciling links for target", logTargetID, targetID)
 	targetEntity, err := r.topo.Get(ctx, targetID)
 	if err != nil {
 		if !errors.IsNotFound(err) {
@@ -116,7 +128,7 @@ func (r *Reconciler) Reconcile(id controller.ID) (controller.Result, error) {
 	paths = append(paths, gnmiPath)
 	gnmiGetReq := &gnmi.GetRequest{
 		Type:     gnmi.GetRequest_STATE,
-		Encoding: gnmi.Encoding_JSON,
+		Encoding: gnmi.Encoding_JSON_IETF,
 		Path:     paths,
 	}
 
@@ -126,12 +138,18 @@ func (r *Reconciler) Reconcile(id controller.ID) (controller.Result, error) {
 		return controller.Result{}, err
 	}
 
-	ports, err := r.extractPorts(getResponse.Notification, targetID)
+	interfaces, err := r.unmarshalNotifications(getResponse.Notification)
+	if err != nil {
+		log.Warnw("Failed reconciling Ports for Target", logTargetID, targetID, "error", err)
+		return controller.Result{}, err
+	}
+
+	links, err := r.extractLinks(interfaces)
 	if err != nil {
 		return controller.Result{}, err
 	}
 
-	if ok, err := r.createPortEntities(ctx, ports); err != nil {
+	if ok, err := r.createLinkEntities(ctx, targetID, links); err != nil {
 		return controller.Result{}, err
 	} else if ok {
 		return controller.Result{}, nil
@@ -139,47 +157,45 @@ func (r *Reconciler) Reconcile(id controller.ID) (controller.Result, error) {
 	return controller.Result{}, nil
 }
 
-func (r *Reconciler) createPortEntities(ctx context.Context, ports []*topoapi.PhyPort) (bool, error) {
-	for _, port := range ports {
-		if _, err := r.createPortEntity(ctx, port); err != nil {
+func (r *Reconciler) createLinkEntities(ctx context.Context, targetID topoapi.ID, links []*topoapi.Link) (bool, error) {
+	for _, link := range links {
+		if _, err := r.createLinkEntity(ctx, targetID, link); err != nil {
 			return false, err
 		}
 	}
 	return true, nil
 }
 
-func (r *Reconciler) createPortEntity(ctx context.Context, port *topoapi.PhyPort) (bool, error) {
-	targetID := port.TargetID
-	portEntityID := utils.GetPortID(targetID, port.DisplayName)
-	log.Infow("Creating port entity", logTargetID, targetID, logTargetID, portEntityID)
-	object, err := r.topo.Get(ctx, portEntityID)
+func (r *Reconciler) createLinkEntity(ctx context.Context, targetID topoapi.ID, link *topoapi.Link) (bool, error) {
+	linkEntityID := utils.GetLinkID("", "")
+	object, err := r.topo.Get(ctx, linkEntityID)
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			log.Warnw("Creating port entity failed", logTargetID, targetID, logPortEntityID, portEntityID)
+			log.Warnw("Creating link entity failed")
 			return false, err
 		}
-
-		portEntity := &topoapi.Object{
-			ID:   portEntityID,
+		log.Infow("Creating link entity", logLinkEntityID, linkEntityID)
+		linkEntity := &topoapi.Object{
+			ID:   linkEntityID,
 			Type: topoapi.Object_ENTITY,
 			Obj: &topoapi.Object_Entity{
 				Entity: &topoapi.Entity{
-					KindID: topoapi.PortKind,
+					KindID: topoapi.LinkKind,
 				},
 			},
 			Aspects: make(map[string]*gogotypes.Any),
 			Labels:  map[string]string{},
 		}
 
-		err = portEntity.SetAspect(port)
+		err = linkEntity.SetAspect(link)
 		if err != nil {
 			return false, err
 		}
 
-		err = r.topo.Create(ctx, portEntity)
+		err = r.topo.Create(ctx, linkEntity)
 		if err != nil {
 			if !errors.IsAlreadyExists(err) {
-				log.Warnw("Creating port entity failed", logTargetID, targetID, logPortEntityID, portEntityID, "error", err)
+				log.Warnw("Creating link entity failed", logLinkEntityID, linkEntityID, "error", err)
 				return false, err
 			}
 			return false, nil
@@ -187,23 +203,23 @@ func (r *Reconciler) createPortEntity(ctx context.Context, port *topoapi.PhyPort
 		return true, nil
 	}
 
-	portAspect := &topoapi.PhyPort{}
-	err = object.GetAspect(portAspect)
+	linkAspect := &topoapi.Link{}
+	err = object.GetAspect(linkAspect)
 	if err == nil {
-		log.Debugf("Port aspect is already set", portAspect)
+		log.Debugf("link aspect is already set", linkAspect)
 		return false, nil
 	}
 
-	log.Debugw("Updating port aspect", logTargetID, targetID, logPortEntityID, portEntityID)
-	err = object.SetAspect(port)
+	log.Debugw("Updating link aspect", logLinkEntityID, linkEntityID)
+	err = object.SetAspect(link)
 	if err != nil {
-		log.Warnw("Updating port aspect failed", logTargetID, targetID, logPortEntityID, portEntityID, "error", err)
+		log.Warnw("Updating link aspect failed", logLinkEntityID, linkEntityID, "error", err)
 		return false, err
 	}
 	err = r.topo.Update(ctx, object)
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			log.Warnw("Updating port entity failed", logTargetID, targetID, logPortEntityID, portEntityID, "error", err)
+			log.Warnw("Updating link entity failed", logLinkEntityID, linkEntityID, "error", err)
 			return false, err
 		}
 		return false, nil

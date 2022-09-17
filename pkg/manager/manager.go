@@ -9,8 +9,9 @@ import (
 	"github.com/onosproject/onos-lib-go/pkg/logging"
 	"github.com/onosproject/onos-lib-go/pkg/northbound"
 	"github.com/onosproject/onos-p4-sdk/pkg/p4rt/appsdk"
-	"github.com/onosproject/topo-discovery/pkg/controller/port"
-	"github.com/onosproject/topo-discovery/pkg/controller/portrelation"
+	"github.com/onosproject/topo-discovery/pkg/controller/link"
+	"github.com/onosproject/topo-discovery/pkg/controller/logicalinterface"
+	"github.com/onosproject/topo-discovery/pkg/controller/logicalinterfacerelation"
 	"github.com/onosproject/topo-discovery/pkg/store/topo"
 )
 
@@ -69,12 +70,12 @@ func (m *Manager) start() error {
 		return err
 	}
 
-	err = m.startPortController(topoStore)
+	err = m.startInterfaceController(topoStore)
 	if err != nil {
 		return err
 	}
 
-	err = m.startPortRelationController(topoStore)
+	err = m.startInterfaceRelationController(topoStore)
 	if err != nil {
 		return err
 	}
@@ -111,12 +112,17 @@ func (m *Manager) startNorthboundServer() error {
 	return <-doneCh
 }
 
-func (m *Manager) startPortController(topo topo.Store) error {
-	portController := port.NewController(topo)
+func (m *Manager) startInterfaceController(topo topo.Store) error {
+	portController := logicalinterface.NewController(topo)
 	return portController.Start()
 }
 
-func (m *Manager) startPortRelationController(topo topo.Store) error {
-	portRelationController := portrelation.NewController(topo)
+func (m *Manager) startInterfaceRelationController(topo topo.Store) error {
+	portRelationController := logicalinterfacerelation.NewController(topo)
 	return portRelationController.Start()
+}
+
+func (m *Manager) startLinkController(topo topo.Store) error {
+	linkController := link.NewController(topo)
+	return linkController.Start()
 }

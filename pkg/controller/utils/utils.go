@@ -9,16 +9,23 @@ import (
 	"github.com/onosproject/onos-lib-go/pkg/uri"
 )
 
-// GetPortID gets port URI
-func GetPortID(targetID string, portID string) topoapi.ID {
-	opaque := targetID + "/" + portID
+// GetLogicalInterfaceID gets logical interface URI
+func GetLogicalInterfaceID(targetID string, logicalInterfaceID string) topoapi.ID {
+	opaque := targetID + "/" + logicalInterfaceID
 	return topoapi.ID(uri.NewURI(
 		uri.WithOpaque(opaque)).String())
 }
 
-// GetContainPortRelationID  creates a CONTAIN port relation ID
-func GetContainPortRelationID(targetEntityID, portEntityID topoapi.ID) topoapi.ID {
-	opaque := targetEntityID + "/" + portEntityID
+// GetLinkID gets link ID
+func GetLinkID(sourceInterfaceID, destInterfaceID string) topoapi.ID {
+	opaque := sourceInterfaceID + "/" + destInterfaceID
+	return topoapi.ID(uri.NewURI(
+		uri.WithOpaque(opaque)).String())
+}
+
+// GetContainLogicalInterfaceRelationID  creates a CONTAIN port relation ID
+func GetContainLogicalInterfaceRelationID(targetEntityID, logicalInterfaceEntityID topoapi.ID) topoapi.ID {
+	opaque := targetEntityID + "/" + logicalInterfaceEntityID
 	return topoapi.ID(uri.NewURI(
 		uri.WithOpaque(string(opaque))).String())
 }

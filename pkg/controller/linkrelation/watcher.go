@@ -42,7 +42,7 @@ func (w *TopoWatcher) Start(ch chan<- controller.ID) error {
 		for event := range eventCh {
 			if entity, ok := event.Object.Obj.(*topoapi.Object_Entity); ok {
 				if entity.Entity.KindID == topoapi.LinkKind {
-					log.Info("Received logical interface entity event")
+					log.Debugw("Received link entity event", "event object ID", event.Object.ID)
 					if err == nil {
 						if err == nil {
 							ch <- controller.NewID(event.Object.ID)

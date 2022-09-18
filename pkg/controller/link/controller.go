@@ -28,10 +28,9 @@ const (
 	defaultTimeout  = 30 * time.Second
 	logLinkEntityID = "Link entity ID"
 	logTargetID     = "TargetID"
-	interfacesPath  = "openconfig-interfaces:interfaces/interface"
 )
 
-// NewController returns a new gNMI connection  controller
+// NewController returns a new link controller
 func NewController(topo topo.Store) *controller.Controller {
 	c := controller.NewController("link")
 	c.Watch(&TopoWatcher{
@@ -43,13 +42,13 @@ func NewController(topo topo.Store) *controller.Controller {
 	return c
 }
 
-// Reconciler reconciles gNMI connections
+// Reconciler reconciles link entities
 type Reconciler struct {
 	topo topo.Store
 }
 
-func (r *Reconciler) unmarshalNotifications(notification []*gnmi.Notification) (types.OpenconfigInterfacesInterfacesInterface, error) {
-	var interfaces types.OpenconfigInterfacesInterfacesInterface
+func (r *Reconciler) unmarshalNotifications(notification []*gnmi.Notification) (types.OpenconfigInterfaces, error) {
+	var interfaces types.OpenconfigInterfaces
 	err := json.Unmarshal(notification[0].Update[0].Val.GetJsonIetfVal(), &interfaces)
 	if err != nil {
 		return interfaces, err
@@ -57,7 +56,7 @@ func (r *Reconciler) unmarshalNotifications(notification []*gnmi.Notification) (
 	return interfaces, nil
 }
 
-func (r *Reconciler) extractLinks(interfaces types.OpenconfigInterfacesInterfacesInterface) ([]*topoapi.Link, error) {
+func (r *Reconciler) extractLinks(interfaces types.OpenconfigInterfaces) ([]*topoapi.Link, error) {
 	var links []*topoapi.Link
 	for _, interfaceVal := range interfaces.OpenconfigInterfacesInterface {
 		subInterfaces := interfaceVal.Subinterfaces.Subinterface
@@ -96,7 +95,7 @@ func (r *Reconciler) extractLinks(interfaces types.OpenconfigInterfacesInterface
 	return links, nil
 }
 
-// Reconcile reconciles port entities for a programmable target
+// Reconcile reconciles link entities for interfaces between programmable entities
 func (r *Reconciler) Reconcile(id controller.ID) (controller.Result, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
@@ -105,7 +104,7 @@ func (r *Reconciler) Reconcile(id controller.ID) (controller.Result, error) {
 	targetEntity, err := r.topo.Get(ctx, targetID)
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			log.Errorw("Failed reconciling Ports for Target", logTargetID, targetID, "error", err)
+			log.Errorw("Failed reconciling links for Target", logTargetID, targetID, "error", err)
 			return controller.Result{}, err
 		}
 		return controller.Result{}, nil
@@ -118,19 +117,19 @@ func (r *Reconciler) Reconcile(id controller.ID) (controller.Result, error) {
 	configurable := &topoapi.Configurable{}
 	err = targetEntity.GetAspect(configurable)
 	if err != nil {
-		log.Warnw("Failed reconciling Ports for Target", logTargetID, targetID, "error", err)
+		log.Warnw("Failed reconciling links for Target", logTargetID, targetID, "error", err)
 		return controller.Result{}, err
 	}
 
 	gnmiConn, err := grpc.Dial("onos-config:5150", opts...)
 	if err != nil {
-		log.Warnw("Failed reconciling Ports for Target", logTargetID, targetID, "error", err)
+		log.Warnw("Failed reconciling links for Target", logTargetID, targetID, "error", err)
 		return controller.Result{}, err
 	}
 	gnmiClient := gnmi.NewGNMIClient(gnmiConn)
 
 	var pbPathElements []*gnmi.PathElem
-	pbPathElements = append(pbPathElements, &gnmi.PathElem{Name: interfacesPath})
+	pbPathElements = append(pbPathElements, &gnmi.PathElem{Name: types.InterfacesPath})
 	gnmiPath := &gnmi.Path{
 		Elem:   pbPathElements,
 		Target: string(targetID),
@@ -145,13 +144,13 @@ func (r *Reconciler) Reconcile(id controller.ID) (controller.Result, error) {
 
 	getResponse, err := gnmiClient.Get(ctx, gnmiGetReq)
 	if err != nil {
-		log.Warnw("Failed reconciling Ports for Target", logTargetID, targetID, "error", err)
+		log.Warnw("Failed reconciling links for Target", logTargetID, targetID, "error", err)
 		return controller.Result{}, err
 	}
 
 	interfaces, err := r.unmarshalNotifications(getResponse.Notification)
 	if err != nil {
-		log.Warnw("Failed reconciling Ports for Target", logTargetID, targetID, "error", err)
+		log.Warnw("Failed reconciling links for Target", logTargetID, targetID, "error", err)
 		return controller.Result{}, err
 	}
 
@@ -177,6 +176,7 @@ func (r *Reconciler) createLinkEntities(ctx context.Context, links []*topoapi.Li
 	return true, nil
 }
 
+// findInterface finds an interface which has a specific ip address in its phy interface aspect
 func (r *Reconciler) findInterface(ctx context.Context, ip string) (topoapi.ID, error) {
 	filter := &topoapi.Filters{
 		KindFilter: &topoapi.Filter{
@@ -205,7 +205,6 @@ func (r *Reconciler) findInterface(ctx context.Context, ip string) (topoapi.ID, 
 }
 
 func (r *Reconciler) createLinkEntity(ctx context.Context, link *topoapi.Link) (bool, error) {
-
 	sourceInterfaceID, err := r.findInterface(ctx, link.SourceIP.GetIP())
 	if err != nil {
 		return false, errors.NewNotFound("source interface not found")

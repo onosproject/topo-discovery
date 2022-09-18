@@ -28,10 +28,9 @@ const (
 	defaultTimeout       = 30 * time.Second
 	logInterfaceEntityID = "Phy Interface entity ID"
 	logTargetID          = "TargetID"
-	interfacesPath       = "openconfig-interfaces:interfaces/interface"
 )
 
-// NewController returns a new gNMI connection  controller
+// NewController returns a new phy interfaces controller
 func NewController(topo topo.Store) *controller.Controller {
 	c := controller.NewController("phy-interfaces")
 	c.Watch(&TopoWatcher{
@@ -43,13 +42,13 @@ func NewController(topo topo.Store) *controller.Controller {
 	return c
 }
 
-// Reconciler reconciles gNMI connections
+// Reconciler reconciles phy interface entities of a programmable target
 type Reconciler struct {
 	topo topo.Store
 }
 
-func (r *Reconciler) unmarshalNotifications(notification []*gnmi.Notification) (types.OpenconfigInterfacesInterfacesInterface, error) {
-	var interfaces types.OpenconfigInterfacesInterfacesInterface
+func (r *Reconciler) unmarshalNotifications(notification []*gnmi.Notification) (types.OpenconfigInterfaces, error) {
+	var interfaces types.OpenconfigInterfaces
 	err := json.Unmarshal(notification[0].Update[0].Val.GetJsonIetfVal(), &interfaces)
 	if err != nil {
 		return interfaces, err
@@ -57,7 +56,7 @@ func (r *Reconciler) unmarshalNotifications(notification []*gnmi.Notification) (
 	return interfaces, nil
 }
 
-func (r *Reconciler) extractInterfaces(interfaces types.OpenconfigInterfacesInterfacesInterface, targetID topoapi.ID) ([]*topoapi.PhyInterface, error) {
+func (r *Reconciler) extractInterfaces(interfaces types.OpenconfigInterfaces, targetID topoapi.ID) ([]*topoapi.PhyInterface, error) {
 	var phyInterfaces []*topoapi.PhyInterface
 	for _, interfaceVal := range interfaces.OpenconfigInterfacesInterface {
 		phyInterface := &topoapi.PhyInterface{}
@@ -111,7 +110,7 @@ func (r *Reconciler) Reconcile(id controller.ID) (controller.Result, error) {
 	gnmiClient := gnmi.NewGNMIClient(gnmiConn)
 
 	var pbPathElements []*gnmi.PathElem
-	pbPathElements = append(pbPathElements, &gnmi.PathElem{Name: interfacesPath})
+	pbPathElements = append(pbPathElements, &gnmi.PathElem{Name: types.InterfacesPath})
 	gnmiPath := &gnmi.Path{
 		Elem:   pbPathElements,
 		Target: string(targetID),

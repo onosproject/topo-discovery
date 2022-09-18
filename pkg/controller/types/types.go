@@ -4,7 +4,12 @@
 
 package types
 
-type OpenconfigInterfacesInterfacesInterface struct {
+const (
+	InterfacesPath = "openconfig-interfaces:interfaces/interface"
+)
+
+// OpenconfigInterfaces open config interfaces data structure
+type OpenconfigInterfaces struct {
 	OpenconfigInterfacesInterface []struct {
 		Name                         string `json:"name"`
 		OpenconfigIfEthernetEthernet struct {

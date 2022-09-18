@@ -18,8 +18,10 @@ import (
 var log = logging.GetLogger()
 
 const (
-	defaultTimeout  = 30 * time.Second
-	logLinkEntityID = "link entity ID"
+	defaultTimeout          = 30 * time.Second
+	logLinkEntityID         = "link entity ID"
+	logOriginatesRelationID = "ORIGINATES relation ID"
+	logTerminatesRelationID = "TERMINATES relation ID"
 )
 
 // NewController returns a new gNMI connection  controller
@@ -34,12 +36,12 @@ func NewController(topo topo.Store) *controller.Controller {
 	return c
 }
 
-// Reconciler reconciles gNMI connections
+// Reconciler reconciles a link originates and terminates relations
 type Reconciler struct {
 	topo topo.Store
 }
 
-// Reconcile reconciles phy interface CONTAIN relations with programmable entity
+// Reconcile reconciles a link ORIGINATES and TERMINATES relations
 func (r *Reconciler) Reconcile(id controller.ID) (controller.Result, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
@@ -76,11 +78,11 @@ func (r *Reconciler) Reconcile(id controller.ID) (controller.Result, error) {
 
 func (r *Reconciler) createLinkOriginatesRelation(ctx context.Context, sourceInterfaceID topoapi.ID, linkEntityID topoapi.ID) (bool, error) {
 	originatesRelationID := utils.GetLinkOriginatesRelationID(sourceInterfaceID, linkEntityID)
-	log.Infow("Creating ORIGINATES relation for link entity", "ORIGINATES Relation ID", originatesRelationID)
+	log.Infow("Creating ORIGINATES relation for link entity", logOriginatesRelationID, originatesRelationID)
 	_, err := r.topo.Get(ctx, originatesRelationID)
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			log.Warnw("Creating ORIGINATES relation for link entity failed", "ORIGINATES Relation ID", originatesRelationID, "error", err)
+			log.Warnw("Creating ORIGINATES relation for link entity failed", logOriginatesRelationID, originatesRelationID, "error", err)
 
 			return false, err
 		}
@@ -99,7 +101,7 @@ func (r *Reconciler) createLinkOriginatesRelation(ctx context.Context, sourceInt
 		err := r.topo.Create(ctx, object)
 		if err != nil {
 			if !errors.IsAlreadyExists(err) {
-				log.Warnw("Creating ORIGINATES relation for link entity failed", "ORIGINATES Relation ID", originatesRelationID, "error", err)
+				log.Warnw("Creating ORIGINATES relation for link entity failed", logOriginatesRelationID, originatesRelationID, "error", err)
 				return false, err
 			}
 			return false, nil
@@ -111,11 +113,11 @@ func (r *Reconciler) createLinkOriginatesRelation(ctx context.Context, sourceInt
 
 func (r *Reconciler) createLinkTerminatesRelation(ctx context.Context, linkEntityID topoapi.ID, destInterfaceID topoapi.ID) (bool, error) {
 	terminatesRelationID := utils.GetLinkTerminatesRelationID(linkEntityID, destInterfaceID)
-	log.Infow("Creating TERMINATES relation for link entity", "TERMINATES Relation ID", terminatesRelationID)
+	log.Infow("Creating TERMINATES relation for link entity", logTerminatesRelationID, terminatesRelationID)
 	_, err := r.topo.Get(ctx, terminatesRelationID)
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			log.Warnw("Creating TERMINATES relation for link entity failed", "TERMINATES Relation ID", terminatesRelationID, "error", err)
+			log.Warnw("Creating TERMINATES relation for link entity failed", logTerminatesRelationID, terminatesRelationID, "error", err)
 
 			return false, err
 		}
@@ -134,7 +136,7 @@ func (r *Reconciler) createLinkTerminatesRelation(ctx context.Context, linkEntit
 		err := r.topo.Create(ctx, object)
 		if err != nil {
 			if !errors.IsAlreadyExists(err) {
-				log.Warnw("Creating Terminates relation for link entity failed", "TERMINATES Relation ID", terminatesRelationID, "error", err)
+				log.Warnw("Creating Terminates relation for link entity failed", logTerminatesRelationID, terminatesRelationID, "error", err)
 				return false, err
 			}
 			return false, nil

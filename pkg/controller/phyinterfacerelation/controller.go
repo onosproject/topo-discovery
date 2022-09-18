@@ -18,8 +18,9 @@ import (
 var log = logging.GetLogger()
 
 const (
-	defaultTimeout       = 30 * time.Second
-	logInterfaceEntityID = "phy interface entity ID"
+	defaultTimeout                = 30 * time.Second
+	logInterfaceEntityID          = "phy interface entity ID"
+	logInterfaceContainRelationID = "phy interface CONTAIN Relation ID"
 )
 
 // NewController returns a new gNMI connection  controller
@@ -34,7 +35,7 @@ func NewController(topo topo.Store) *controller.Controller {
 	return c
 }
 
-// Reconciler reconciles gNMI connections
+// Reconciler reconciles phy interface entity CONTAIN relation
 type Reconciler struct {
 	topo topo.Store
 }
@@ -99,11 +100,11 @@ func (r *Reconciler) deletePhyInterfaceEntity(ctx context.Context, phyInterfaceE
 
 func (r *Reconciler) createPhyInterfaceContainRelation(ctx context.Context, targetID topoapi.ID, phyInterfaceEntityID topoapi.ID) (bool, error) {
 	phyInterfaceRelationID := utils.GetContainPhyInterfaceRelationID(targetID, phyInterfaceEntityID)
-	log.Infow("Creating contain phy interface relation for target entity", "phy interface CONTAIN Relation ID", phyInterfaceRelationID)
+	log.Infow("Creating contain phy interface relation for target entity", logInterfaceContainRelationID, phyInterfaceRelationID)
 	_, err := r.topo.Get(ctx, phyInterfaceRelationID)
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			log.Warnw("Creating phy interface CONTAIN  relation for target entity failed", "phy interface CONTAIN Relation ID", phyInterfaceRelationID, "error", err)
+			log.Warnw("Creating phy interface CONTAIN  relation for target entity failed", logInterfaceContainRelationID, phyInterfaceRelationID, "error", err)
 
 			return false, err
 		}
@@ -122,7 +123,7 @@ func (r *Reconciler) createPhyInterfaceContainRelation(ctx context.Context, targ
 		err := r.topo.Create(ctx, object)
 		if err != nil {
 			if !errors.IsAlreadyExists(err) {
-				log.Warnw("Creating phy interface  CONTAIN  relation for target entity failed", "phy interface CONTAIN Relation ID", phyInterfaceRelationID, "error", err)
+				log.Warnw("Creating phy interface  CONTAIN  relation for target entity failed", logInterfaceContainRelationID, phyInterfaceRelationID, "error", err)
 				return false, err
 			}
 			return false, nil

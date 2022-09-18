@@ -25,6 +25,8 @@ func GetLinkID(sourceInterfaceID, destInterfaceID topoapi.ID) topoapi.ID {
 		uri.WithOpaque(string(opaque))).String())
 
 }
+
+// GetInterfaceIDsFromLinkID extracts source and destination interfaces given a link ID
 func GetInterfaceIDsFromLinkID(linkID topoapi.ID) (topoapi.ID, topoapi.ID, error) {
 	result := strings.Split(string(linkID), ":")
 	if len(result) == 2 {
@@ -41,15 +43,15 @@ func GetContainPhyInterfaceRelationID(targetEntityID, logicalInterfaceEntityID t
 }
 
 // GetLinkOriginatesRelationID  creates a link originates relation ID
-func GetLinkOriginatesRelationID(sourceInterfaceID, linkEntityId topoapi.ID) topoapi.ID {
-	opaque := sourceInterfaceID + ":" + linkEntityId
+func GetLinkOriginatesRelationID(sourceInterfaceID, linkEntityID topoapi.ID) topoapi.ID {
+	opaque := sourceInterfaceID + ":" + linkEntityID
 	return topoapi.ID(uri.NewURI(
 		uri.WithOpaque(string(opaque))).String())
 }
 
 // GetLinkTerminatesRelationID  creates a link terminates relation ID
-func GetLinkTerminatesRelationID(linkEntityId topoapi.ID, destInterfaceID topoapi.ID) topoapi.ID {
-	opaque := linkEntityId + ":" + destInterfaceID
+func GetLinkTerminatesRelationID(linkEntityID topoapi.ID, destInterfaceID topoapi.ID) topoapi.ID {
+	opaque := linkEntityID + ":" + destInterfaceID
 	return topoapi.ID(uri.NewURI(
 		uri.WithOpaque(string(opaque))).String())
 }

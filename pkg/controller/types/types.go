@@ -11,12 +11,7 @@ const (
 // OpenconfigInterfaces open config interfaces data structure
 type OpenconfigInterfaces struct {
 	OpenconfigInterfacesInterface []struct {
-		Name                         string `json:"name"`
-		OpenconfigIfEthernetEthernet struct {
-			State struct {
-				GooglePinsInterfacesTransceiverQualified bool `json:"google-pins-interfaces:transceiver-qualified"`
-			} `json:"state"`
-		} `json:"openconfig-if-ethernet:ethernet"`
+		Name  string `json:"name"`
 		State struct {
 			CPU        bool   `json:"cpu"`
 			Management bool   `json:"management"`

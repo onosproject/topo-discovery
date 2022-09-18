@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/atomix/atomix-go-client v0.6.2
 	github.com/gogo/protobuf v1.3.2
-	github.com/onosproject/onos-api/go v0.9.40
+	github.com/onosproject/onos-api/go v0.9.45
 	github.com/onosproject/onos-lib-go v0.9.0
 	github.com/onosproject/onos-topo v0.9.7
 	github.com/openconfig/gnmi v0.0.0-20220617175856-41246b1b3507
@@ -76,5 +76,3 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/onosproject/onos-api/go => /Users/arastega/go/src/github.com/onosproject/onos-api/go

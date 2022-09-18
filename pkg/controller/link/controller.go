@@ -66,7 +66,7 @@ func (r *Reconciler) extractLinks(interfaces types.OpenconfigInterfacesInterface
 			subIntNeighbors := subInterface.OpenconfigIfIPIpv4.Neighbors.Neighbor
 			if len(subIntNeighbors) != 0 {
 				for _, neighbor := range subIntNeighbors {
-					link := &topoapi.Link{
+					forwardLink := &topoapi.Link{
 						SourceIP: &topoapi.IPAddress{
 							Type: topoapi.IPAddress_IPV4,
 							IP:   subIntAddresses[0].IP,
@@ -76,7 +76,18 @@ func (r *Reconciler) extractLinks(interfaces types.OpenconfigInterfacesInterface
 							IP:   neighbor.IP,
 						},
 					}
-					links = append(links, link)
+					reverseLink := &topoapi.Link{
+						SourceIP: &topoapi.IPAddress{
+							Type: topoapi.IPAddress_IPV4,
+							IP:   neighbor.IP,
+						},
+						DestinationIP: &topoapi.IPAddress{
+							Type: topoapi.IPAddress_IPV4,
+							IP:   subIntAddresses[0].IP,
+						},
+					}
+					links = append(links, forwardLink)
+					links = append(links, reverseLink)
 				}
 			}
 		}
@@ -149,7 +160,7 @@ func (r *Reconciler) Reconcile(id controller.ID) (controller.Result, error) {
 		return controller.Result{}, err
 	}
 
-	if ok, err := r.createLinkEntities(ctx, targetID, links); err != nil {
+	if ok, err := r.createLinkEntities(ctx, links); err != nil {
 		return controller.Result{}, err
 	} else if ok {
 		return controller.Result{}, nil
@@ -157,17 +168,54 @@ func (r *Reconciler) Reconcile(id controller.ID) (controller.Result, error) {
 	return controller.Result{}, nil
 }
 
-func (r *Reconciler) createLinkEntities(ctx context.Context, targetID topoapi.ID, links []*topoapi.Link) (bool, error) {
+func (r *Reconciler) createLinkEntities(ctx context.Context, links []*topoapi.Link) (bool, error) {
 	for _, link := range links {
-		if _, err := r.createLinkEntity(ctx, targetID, link); err != nil {
+		if _, err := r.createLinkEntity(ctx, link); err != nil {
 			return false, err
 		}
 	}
 	return true, nil
 }
 
-func (r *Reconciler) createLinkEntity(ctx context.Context, targetID topoapi.ID, link *topoapi.Link) (bool, error) {
-	linkEntityID := utils.GetLinkID("", "")
+func (r *Reconciler) findInterface(ctx context.Context, ip string) (topoapi.ID, error) {
+	filter := &topoapi.Filters{
+		KindFilter: &topoapi.Filter{
+			Filter: &topoapi.Filter_Equal_{
+				Equal_: &topoapi.EqualFilter{
+					Value: topoapi.InterfaceKind,
+				},
+			},
+		},
+	}
+	interfaceList, err := r.topo.List(ctx, filter)
+	if err != nil {
+		return "", err
+	}
+	for _, object := range interfaceList {
+		phyInterfaceAspect := &topoapi.PhyInterface{}
+		err = object.GetAspect(phyInterfaceAspect)
+		if err != nil {
+			return "", err
+		}
+		if phyInterfaceAspect.Ip.GetIP() == ip {
+			return object.ID, nil
+		}
+	}
+	return "", errors.NewNotFound("interface with the given ip is not found")
+}
+
+func (r *Reconciler) createLinkEntity(ctx context.Context, link *topoapi.Link) (bool, error) {
+
+	sourceInterfaceID, err := r.findInterface(ctx, link.SourceIP.GetIP())
+	if err != nil {
+		return false, errors.NewNotFound("source interface not found")
+	}
+	destInterfaceID, err := r.findInterface(ctx, link.DestinationIP.GetIP())
+	if err != nil {
+		return false, errors.NewNotFound("dest interface not found")
+	}
+
+	linkEntityID := utils.GetLinkID(sourceInterfaceID, destInterfaceID)
 	object, err := r.topo.Get(ctx, linkEntityID)
 	if err != nil {
 		if !errors.IsNotFound(err) {

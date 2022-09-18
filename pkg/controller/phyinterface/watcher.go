@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package logicalinterfacerelation
+package phyinterface
 
 import (
 	"context"
@@ -40,23 +40,30 @@ func (w *TopoWatcher) Start(ch chan<- controller.ID) error {
 	w.cancel = cancel
 	go func() {
 		for event := range eventCh {
-			if entity, ok := event.Object.Obj.(*topoapi.Object_Entity); ok {
-				if entity.Entity.KindID == topoapi.InterfaceKind {
-					log.Info("Received logical interface entity event")
+			if relation, ok := event.Object.Obj.(*topoapi.Object_Relation); ok {
+				if relation.Relation.KindID == topoapi.ControlsKind {
+					targetID := relation.Relation.TgtEntityID
+					targetEntity, err := w.topo.Get(ctx, targetID)
 					if err == nil {
+						err = targetEntity.GetAspect(&topoapi.Configurable{})
 						if err == nil {
-							ch <- controller.NewID(event.Object.ID)
+							ch <- controller.NewID(targetID)
 						}
+
 					}
+
 				}
 			}
-			if relation, ok := event.Object.Obj.(*topoapi.Object_Relation); ok {
-				if relation.Relation.KindID == topoapi.CONTAINS {
-					targetEntity, err := w.topo.Get(ctx, relation.Relation.TgtEntityID)
-					if err != nil {
-						log.Warn(err)
-					} else if targetEntity.GetEntity().KindID == topoapi.InterfaceKind {
-						ch <- controller.NewID(relation.Relation.TgtEntityID)
+			if entity, ok := event.Object.Obj.(*topoapi.Object_Entity); ok {
+				if entity.Entity.KindID == topoapi.PortKind {
+					log.Info("Received port entity event")
+					portEntity, err := w.topo.Get(ctx, event.Object.ID)
+					if err == nil {
+						portAspect := &topoapi.PhyPort{}
+						err = portEntity.GetAspect(portAspect)
+						if err == nil {
+							ch <- controller.NewID(topoapi.ID(portAspect.TargetID))
+						}
 					}
 				}
 			}

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package logicalinterface
+package phyinterface
 
 import (
 	"context"
@@ -26,14 +26,14 @@ var log = logging.GetLogger()
 
 const (
 	defaultTimeout       = 30 * time.Second
-	logInterfaceEntityID = "Logical Interface entity ID"
+	logInterfaceEntityID = "Phy Interface entity ID"
 	logTargetID          = "TargetID"
 	interfacesPath       = "openconfig-interfaces:interfaces/interface"
 )
 
 // NewController returns a new gNMI connection  controller
 func NewController(topo topo.Store) *controller.Controller {
-	c := controller.NewController("logical-interfaces")
+	c := controller.NewController("phy-interfaces")
 	c.Watch(&TopoWatcher{
 		topo: topo,
 	})
@@ -57,28 +57,27 @@ func (r *Reconciler) unmarshalNotifications(notification []*gnmi.Notification) (
 	return interfaces, nil
 }
 
-func (r *Reconciler) extractInterfaces(interfaces types.OpenconfigInterfacesInterfacesInterface, targetID topoapi.ID) ([]*topoapi.LogicalInterface, error) {
-	var logicalInterfaces []*topoapi.LogicalInterface
+func (r *Reconciler) extractInterfaces(interfaces types.OpenconfigInterfacesInterfacesInterface, targetID topoapi.ID) ([]*topoapi.PhyInterface, error) {
+	var phyInterfaces []*topoapi.PhyInterface
 	for _, interfaceVal := range interfaces.OpenconfigInterfacesInterface {
-		logicalInterface := &topoapi.LogicalInterface{}
-		logicalInterface.DisplayName = interfaceVal.Name
-		logicalInterface.TargetID = string(targetID)
+		phyInterface := &topoapi.PhyInterface{}
+		phyInterface.DisplayName = interfaceVal.Name
+		phyInterface.TargetID = string(targetID)
 		if len(interfaceVal.Subinterfaces.Subinterface) != 0 {
 			if len(interfaceVal.Subinterfaces.Subinterface[0].OpenconfigIfIPIpv4.Addresses.Address) != 0 {
-				logicalInterface.Ip = &topoapi.IPAddress{
+				phyInterface.Ip = &topoapi.IPAddress{
 					Type: topoapi.IPAddress_IPV4,
 					IP:   interfaceVal.Subinterfaces.Subinterface[0].OpenconfigIfIPIpv4.Addresses.Address[0].IP,
 				}
 			}
-
 		}
 
-		logicalInterfaces = append(logicalInterfaces, logicalInterface)
+		phyInterfaces = append(phyInterfaces, phyInterface)
 	}
-	return logicalInterfaces, nil
+	return phyInterfaces, nil
 }
 
-// Reconcile reconciles logical interface entities for a programmable target
+// Reconcile reconciles phy interface entities for a programmable target
 func (r *Reconciler) Reconcile(id controller.ID) (controller.Result, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
@@ -137,12 +136,12 @@ func (r *Reconciler) Reconcile(id controller.ID) (controller.Result, error) {
 		return controller.Result{}, err
 	}
 
-	logicalInterfaces, err := r.extractInterfaces(interfaces, targetID)
+	phyInterfaces, err := r.extractInterfaces(interfaces, targetID)
 	if err != nil {
 		return controller.Result{}, err
 	}
 
-	if ok, err := r.createLogicalInterfaceEntities(ctx, logicalInterfaces); err != nil {
+	if ok, err := r.createInterfaceEntities(ctx, phyInterfaces); err != nil {
 		return controller.Result{}, err
 	} else if ok {
 		return controller.Result{}, nil
@@ -150,28 +149,28 @@ func (r *Reconciler) Reconcile(id controller.ID) (controller.Result, error) {
 	return controller.Result{}, nil
 }
 
-func (r *Reconciler) createLogicalInterfaceEntities(ctx context.Context, logicalInterfaces []*topoapi.LogicalInterface) (bool, error) {
-	for _, logicalInterface := range logicalInterfaces {
-		if _, err := r.createLogicalInterfaceEntity(ctx, logicalInterface); err != nil {
+func (r *Reconciler) createInterfaceEntities(ctx context.Context, phyInterfaces []*topoapi.PhyInterface) (bool, error) {
+	for _, phyInterface := range phyInterfaces {
+		if _, err := r.createInterfaceEntity(ctx, phyInterface); err != nil {
 			return false, err
 		}
 	}
 	return true, nil
 }
 
-func (r *Reconciler) createLogicalInterfaceEntity(ctx context.Context, logicalInterface *topoapi.LogicalInterface) (bool, error) {
-	targetID := logicalInterface.TargetID
-	logicalInterfaceEntityID := utils.GetLogicalInterfaceID(targetID, logicalInterface.DisplayName)
-	log.Infow("Creating logical interface entity", logTargetID, targetID, logInterfaceEntityID, logicalInterfaceEntityID)
-	object, err := r.topo.Get(ctx, logicalInterfaceEntityID)
+func (r *Reconciler) createInterfaceEntity(ctx context.Context, phyInterface *topoapi.PhyInterface) (bool, error) {
+	targetID := phyInterface.TargetID
+	phyInterfaceEntityID := utils.GetPhyInterfaceID(targetID, phyInterface.DisplayName)
+	log.Infow("Creating phy interface entity", logTargetID, targetID, logInterfaceEntityID, phyInterfaceEntityID)
+	object, err := r.topo.Get(ctx, phyInterfaceEntityID)
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			log.Warnw("Creating logical interface entity failed", logTargetID, targetID, logInterfaceEntityID, logicalInterfaceEntityID)
+			log.Warnw("Creating phy interface entity failed", logTargetID, targetID, logInterfaceEntityID, phyInterfaceEntityID)
 			return false, err
 		}
 
-		logicalInterfaceEntity := &topoapi.Object{
-			ID:   logicalInterfaceEntityID,
+		phyInterfaceEntity := &topoapi.Object{
+			ID:   phyInterfaceEntityID,
 			Type: topoapi.Object_ENTITY,
 			Obj: &topoapi.Object_Entity{
 				Entity: &topoapi.Entity{
@@ -182,15 +181,15 @@ func (r *Reconciler) createLogicalInterfaceEntity(ctx context.Context, logicalIn
 			Labels:  map[string]string{},
 		}
 
-		err = logicalInterfaceEntity.SetAspect(logicalInterface)
+		err = phyInterfaceEntity.SetAspect(phyInterface)
 		if err != nil {
 			return false, err
 		}
 
-		err = r.topo.Create(ctx, logicalInterfaceEntity)
+		err = r.topo.Create(ctx, phyInterfaceEntity)
 		if err != nil {
 			if !errors.IsAlreadyExists(err) {
-				log.Warnw("Creating logical interface entity failed", logTargetID, targetID, logInterfaceEntityID, logicalInterfaceEntityID, "error", err)
+				log.Warnw("Creating phy interface entity failed", logTargetID, targetID, logInterfaceEntityID, phyInterfaceEntityID, "error", err)
 				return false, err
 			}
 			return false, nil
@@ -198,23 +197,23 @@ func (r *Reconciler) createLogicalInterfaceEntity(ctx context.Context, logicalIn
 		return true, nil
 	}
 
-	logicalInterfaceAspect := &topoapi.LogicalInterface{}
-	err = object.GetAspect(logicalInterfaceAspect)
+	phyInterfaceAspect := &topoapi.PhyInterface{}
+	err = object.GetAspect(phyInterfaceAspect)
 	if err == nil {
-		log.Debugf("Logical interface aspect is already set", logicalInterfaceAspect)
+		log.Debugf("Phy interface aspect is already set", phyInterfaceAspect)
 		return false, nil
 	}
 
-	log.Debugw("Updating logical interface aspect", logTargetID, targetID, logInterfaceEntityID, logicalInterfaceEntityID)
-	err = object.SetAspect(logicalInterfaceAspect)
+	log.Debugw("Updating phy interface aspect", logTargetID, targetID, logInterfaceEntityID, phyInterfaceEntityID)
+	err = object.SetAspect(phyInterfaceAspect)
 	if err != nil {
-		log.Warnw("Updating logical interface aspect failed", logTargetID, targetID, logInterfaceEntityID, logicalInterfaceEntityID, "error", err)
+		log.Warnw("Updating phy interface aspect failed", logTargetID, targetID, logInterfaceEntityID, phyInterfaceEntityID, "error", err)
 		return false, err
 	}
 	err = r.topo.Update(ctx, object)
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			log.Warnw("Updating logical interface entity failed", logTargetID, targetID, logInterfaceEntityID, logicalInterfaceEntityID, "error", err)
+			log.Warnw("Updating phy interface entity failed", logTargetID, targetID, logInterfaceEntityID, phyInterfaceEntityID, "error", err)
 			return false, err
 		}
 		return false, nil

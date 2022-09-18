@@ -42,7 +42,7 @@ func runRootCommand(cmd *cobra.Command, args []string) error {
 	certPath, _ := cmd.Flags().GetString("certPath")
 	topoEndpoint, _ := cmd.Flags().GetString("topoEndpoint")
 
-	log.Infow("Starting Device Provisioner application",
+	log.Infow("Starting Topo discovery application",
 		"CaPath", caPath,
 		"keyPath", keyPath,
 		"certPath", certPath,

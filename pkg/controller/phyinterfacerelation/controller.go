@@ -23,7 +23,7 @@ const (
 	logInterfaceContainRelationID = "phy interface CONTAIN Relation ID"
 )
 
-// NewController returns a new gNMI connection  controller
+// NewController returns a new phy interface relation controller
 func NewController(topo topo.Store) *controller.Controller {
 	c := controller.NewController("phy-interface-relation")
 	c.Watch(&TopoWatcher{

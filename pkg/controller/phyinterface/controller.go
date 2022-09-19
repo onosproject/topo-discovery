@@ -13,12 +13,11 @@ import (
 	"github.com/onosproject/onos-lib-go/pkg/controller"
 	"github.com/onosproject/onos-lib-go/pkg/errors"
 	"github.com/onosproject/onos-lib-go/pkg/logging"
+	gclient "github.com/onosproject/topo-discovery/pkg/client/gnmi"
 	"github.com/onosproject/topo-discovery/pkg/controller/types"
 	"github.com/onosproject/topo-discovery/pkg/controller/utils"
 	"github.com/onosproject/topo-discovery/pkg/store/topo"
 	"github.com/openconfig/gnmi/proto/gnmi"
-
-	"google.golang.org/grpc"
 	"time"
 )
 
@@ -102,12 +101,19 @@ func (r *Reconciler) Reconcile(id controller.ID) (controller.Result, error) {
 		return controller.Result{}, err
 	}
 
-	gnmiConn, err := grpc.Dial("onos-config:5150", opts...)
+	onosConfigDest, err := gclient.NewDestination("onos-config:5150", targetID, &topoapi.TLSOptions{
+		Insecure: true,
+	})
 	if err != nil {
 		log.Warnw("Failed reconciling interfaces for Target", logTargetID, targetID, "error", err)
 		return controller.Result{}, err
 	}
-	gnmiClient := gnmi.NewGNMIClient(gnmiConn)
+
+	gnmiClient, err := gclient.Connect(ctx, *onosConfigDest, opts...)
+	if err != nil {
+		log.Warnw("Failed reconciling interfaces for Target", logTargetID, targetID, "error", err)
+		return controller.Result{}, err
+	}
 
 	var pbPathElements []*gnmi.PathElem
 	pbPathElements = append(pbPathElements, &gnmi.PathElem{Name: types.InterfacesPath})
@@ -128,7 +134,6 @@ func (r *Reconciler) Reconcile(id controller.ID) (controller.Result, error) {
 		log.Warnw("Failed reconciling interfaces for Target", logTargetID, targetID, "error", err)
 		return controller.Result{}, err
 	}
-
 	interfaces, err := r.unmarshalNotifications(getResponse.Notification)
 	if err != nil {
 		log.Warnw("Failed reconciling interfaces for Target", logTargetID, targetID, "error", err)

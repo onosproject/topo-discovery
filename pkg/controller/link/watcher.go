@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package port
+package link
 
 import (
 	"context"
@@ -50,20 +50,6 @@ func (w *TopoWatcher) Start(ch chan<- controller.ID) error {
 							ch <- controller.NewID(targetID)
 						}
 
-					}
-
-				}
-			}
-			if entity, ok := event.Object.Obj.(*topoapi.Object_Entity); ok {
-				if entity.Entity.KindID == topoapi.PortKind {
-					log.Info("Received port entity event")
-					portEntity, err := w.topo.Get(ctx, event.Object.ID)
-					if err == nil {
-						portAspect := &topoapi.PhyPort{}
-						err = portEntity.GetAspect(portAspect)
-						if err == nil {
-							ch <- controller.NewID(topoapi.ID(portAspect.TargetID))
-						}
 					}
 				}
 			}

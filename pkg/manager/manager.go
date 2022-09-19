@@ -8,9 +8,10 @@ import (
 	"github.com/onosproject/onos-lib-go/pkg/certs"
 	"github.com/onosproject/onos-lib-go/pkg/logging"
 	"github.com/onosproject/onos-lib-go/pkg/northbound"
-	"github.com/onosproject/onos-p4-sdk/pkg/p4rt/appsdk"
-	"github.com/onosproject/topo-discovery/pkg/controller/port"
-	"github.com/onosproject/topo-discovery/pkg/controller/portrelation"
+	"github.com/onosproject/topo-discovery/pkg/controller/link"
+	"github.com/onosproject/topo-discovery/pkg/controller/linkrelation"
+	"github.com/onosproject/topo-discovery/pkg/controller/phyinterface"
+	"github.com/onosproject/topo-discovery/pkg/controller/phyinterfacerelation"
 	"github.com/onosproject/topo-discovery/pkg/store/topo"
 )
 
@@ -56,12 +57,12 @@ func (m *Manager) start() error {
 		return err
 	}
 
-	appsdk.StartController(appsdk.Config{
+	/*appsdk.StartController(appsdk.Config{
 		CAPath:      m.Config.CAPath,
 		CertPath:    m.Config.CertPath,
 		KeyPath:     m.Config.KeyPath,
 		TopoAddress: m.Config.TopoAddress,
-	})
+	})*/
 
 	// Create new topo store
 	topoStore, err := topo.NewStore(m.Config.TopoAddress, opts...)
@@ -69,12 +70,22 @@ func (m *Manager) start() error {
 		return err
 	}
 
-	err = m.startPortController(topoStore)
+	err = m.startInterfaceController(topoStore)
 	if err != nil {
 		return err
 	}
 
-	err = m.startPortRelationController(topoStore)
+	err = m.startInterfaceRelationController(topoStore)
+	if err != nil {
+		return err
+	}
+
+	err = m.startLinkController(topoStore)
+	if err != nil {
+		return err
+	}
+
+	err = m.startLinkRelationController(topoStore)
 	if err != nil {
 		return err
 	}
@@ -111,12 +122,21 @@ func (m *Manager) startNorthboundServer() error {
 	return <-doneCh
 }
 
-func (m *Manager) startPortController(topo topo.Store) error {
-	portController := port.NewController(topo)
+func (m *Manager) startInterfaceController(topo topo.Store) error {
+	portController := phyinterface.NewController(topo)
 	return portController.Start()
 }
 
-func (m *Manager) startPortRelationController(topo topo.Store) error {
-	portRelationController := portrelation.NewController(topo)
+func (m *Manager) startInterfaceRelationController(topo topo.Store) error {
+	portRelationController := phyinterfacerelation.NewController(topo)
 	return portRelationController.Start()
+}
+
+func (m *Manager) startLinkController(topo topo.Store) error {
+	linkController := link.NewController(topo)
+	return linkController.Start()
+}
+func (m *Manager) startLinkRelationController(topo topo.Store) error {
+	linkRelationController := linkrelation.NewController(topo)
+	return linkRelationController.Start()
 }

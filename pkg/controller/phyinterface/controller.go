@@ -208,7 +208,7 @@ func (r *Reconciler) createInterfaceEntity(ctx context.Context, phyInterface *to
 		return false, nil
 	}
 
-	log.Debugw("Updating phy interface aspect", logTargetID, targetID, logInterfaceEntityID, phyInterfaceEntityID)
+	log.Infow("Updating phy interface aspect", logTargetID, targetID, logInterfaceEntityID, phyInterfaceEntityID)
 	err = object.SetAspect(phyInterfaceAspect)
 	if err != nil {
 		log.Warnw("Updating phy interface aspect failed", logTargetID, targetID, logInterfaceEntityID, phyInterfaceEntityID, "error", err)

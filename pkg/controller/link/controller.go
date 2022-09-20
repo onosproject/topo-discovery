@@ -214,11 +214,11 @@ func (r *Reconciler) findInterface(ctx context.Context, ip string) (topoapi.ID, 
 func (r *Reconciler) createLinkEntity(ctx context.Context, link *topoapi.Link) (bool, error) {
 	sourceInterfaceID, err := r.findInterface(ctx, link.SourceIP.GetIP())
 	if err != nil {
-		return false, errors.NewNotFound("source interface not found")
+		return false, errors.NewNotFound("source interface not found:", link.SourceIP.GetIP())
 	}
 	destInterfaceID, err := r.findInterface(ctx, link.DestinationIP.GetIP())
 	if err != nil {
-		return false, errors.NewNotFound("dest interface not found")
+		return false, errors.NewNotFound("dest interface not found:", link.DestinationIP.GetIP())
 	}
 
 	linkEntityID := utils.GetLinkID(sourceInterfaceID, destInterfaceID)

@@ -56,11 +56,11 @@ func (w *TopoWatcher) Start(ch chan<- controller.ID) error {
 			}
 			if entity, ok := event.Object.Obj.(*topoapi.Object_Entity); ok {
 				if entity.Entity.KindID == topoapi.InterfaceKind {
-					log.Debugw("Received interface entity event", "event object ID", event.Object.ID)
-					portEntity, err := w.topo.Get(ctx, event.Object.ID)
+					log.Infow("Received interface entity event", "event object ID", event.Object.ID)
+					phyInterfaceEntity, err := w.topo.Get(ctx, event.Object.ID)
 					if err == nil {
 						phyInterfaceAspect := &topoapi.PhyInterface{}
-						err = portEntity.GetAspect(phyInterfaceAspect)
+						err = phyInterfaceEntity.GetAspect(phyInterfaceAspect)
 						if err == nil {
 							ch <- controller.NewID(topoapi.ID(phyInterfaceAspect.TargetID))
 						}

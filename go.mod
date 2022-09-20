@@ -13,7 +13,6 @@ require (
 	github.com/spf13/cobra v1.5.0
 	github.com/stretchr/testify v1.8.0
 	google.golang.org/grpc v1.48.0
-	google.golang.org/protobuf v1.28.0
 )
 
 require (
@@ -76,6 +75,7 @@ require (
 	golang.org/x/text v0.3.7 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20220803205849-8f55acc8769f // indirect
+	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/ini.v1 v1.66.4 // indirect
 	gopkg.in/square/go-jose.v1 v1.1.2 // indirect
 	gopkg.in/square/go-jose.v2 v2.5.1 // indirect

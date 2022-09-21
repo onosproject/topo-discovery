@@ -6,7 +6,6 @@ package gnmi
 
 import (
 	"context"
-	"github.com/golang/protobuf/proto"
 	"github.com/onosproject/onos-lib-go/pkg/logging"
 	"io"
 
@@ -23,11 +22,8 @@ var log = logging.GetLogger()
 type Client interface {
 	io.Closer
 	Capabilities(ctx context.Context, r *gpb.CapabilityRequest) (*gpb.CapabilityResponse, error)
-	CapabilitiesWithString(ctx context.Context, request string) (*gpb.CapabilityResponse, error)
 	Get(ctx context.Context, r *gpb.GetRequest) (*gpb.GetResponse, error)
-	GetWithString(ctx context.Context, request string) (*gpb.GetResponse, error)
 	Set(ctx context.Context, r *gpb.SetRequest) (*gpb.SetResponse, error)
-	SetWithString(ctx context.Context, request string) (*gpb.SetResponse, error)
 	Subscribe(ctx context.Context, q baseClient.Query) error
 	Poll() error
 }
@@ -76,45 +72,6 @@ func (c *client) Get(ctx context.Context, req *gpb.GetRequest) (*gpb.GetResponse
 // Set calls gnmi Set RPC
 func (c *client) Set(ctx context.Context, req *gpb.SetRequest) (*gpb.SetResponse, error) {
 	setResponse, err := c.client.Set(ctx, req)
-	return setResponse, errors.FromGRPC(err)
-}
-
-// CapabilitiesWithString allows a request for the capabilities by a string - can be empty
-func (c *client) CapabilitiesWithString(ctx context.Context, request string) (*gpb.CapabilityResponse, error) {
-	r := &gpb.CapabilityRequest{}
-	reqProto := &request
-	if err := proto.UnmarshalText(*reqProto, r); err != nil {
-		return nil, errors.NewInvalid("unable to unmarshal gnmi.CapabilityRequest from %v : %v", *reqProto, err)
-	}
-	capResponse, err := c.client.Capabilities(ctx, r)
-	return capResponse, errors.FromGRPC(err)
-}
-
-// GetWithString can make a get request based on a given a string request - can be empty
-func (c *client) GetWithString(ctx context.Context, request string) (*gpb.GetResponse, error) {
-	if request == "" {
-		return nil, errors.NewInvalid("cannot get an empty request")
-	}
-	r := &gpb.GetRequest{}
-	reqProto := &request
-	if err := proto.UnmarshalText(*reqProto, r); err != nil {
-		return nil, errors.NewInvalid("unable to unmarshal gnmi getRequest from %v : %v", *reqProto, err)
-	}
-	getResponse, err := c.client.Get(ctx, r)
-	return getResponse, errors.FromGRPC(err)
-}
-
-// SetWithString can make a set request based on a given string request
-func (c *client) SetWithString(ctx context.Context, request string) (*gpb.SetResponse, error) {
-	if request == "" {
-		return nil, errors.NewInvalid("cannot set an empty request")
-	}
-	r := &gpb.SetRequest{}
-	reqProto := &request
-	if err := proto.UnmarshalText(*reqProto, r); err != nil {
-		return nil, errors.NewInvalid("unable to unmarshal gnmi set request from %v: %v", *reqProto, err)
-	}
-	setResponse, err := c.client.Set(ctx, r)
 	return setResponse, errors.FromGRPC(err)
 }
 

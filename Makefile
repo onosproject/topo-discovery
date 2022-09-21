@@ -6,6 +6,7 @@ SHELL = bash -e -o pipefail
 
 export CGO_ENABLED=1
 export GO111MODULE=on
+GOLANGCI_LINT_VERSION := v1.48
 
 .PHONY: build
 
@@ -24,7 +25,7 @@ mod-lint: mod-update # @HELP ensure that the required dependencies are in place
 
 
 linters:
-	golangci-lint run --timeout 15m || curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b `go env GOPATH`/bin v1.48.0
+	@docker run --rm -v $(CURDIR):/app -w /app golangci/golangci-lint:${GOLANGCI_LINT_VERSION} golangci-lint run -v --config /app/.golangci.yml
 
 build: # @HELP build the Go binaries and run all validations (default)
 build: mod-update

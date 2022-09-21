@@ -5,6 +5,7 @@
 package types
 
 const (
+	// InterfacesPath open config interfaces path
 	InterfacesPath = "openconfig-interfaces:interfaces/interface"
 )
 

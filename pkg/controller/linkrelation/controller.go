@@ -83,7 +83,6 @@ func (r *Reconciler) createLinkOriginatesRelation(ctx context.Context, sourceInt
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			log.Warnw("Creating ORIGINATES relation for link entity failed", logOriginatesRelationID, originatesRelationID, "error", err)
-
 			return false, err
 		}
 		object := &topoapi.Object{

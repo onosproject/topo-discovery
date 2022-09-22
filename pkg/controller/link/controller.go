@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	gogotypes "github.com/gogo/protobuf/types"
+	gnmicapi "github.com/karimra/gnmic/api"
 	topoapi "github.com/onosproject/onos-api/go/onos/topo"
 	"github.com/onosproject/onos-lib-go/pkg/certs"
 	"github.com/onosproject/onos-lib-go/pkg/controller"
@@ -125,31 +126,29 @@ func (r *Reconciler) Reconcile(id controller.ID) (controller.Result, error) {
 		Insecure: true,
 	})
 	if err != nil {
-		log.Warnw("Failed reconciling interfaces for Target", logTargetID, targetID, "error", err)
+		log.Warnw("Failed reconciling links for Target", logTargetID, targetID, "error", err)
 		return controller.Result{}, err
 	}
 
 	gnmiClient, err := gclient.Connect(ctx, *onosConfigDest, opts...)
 	if err != nil {
-		log.Warnw("Failed reconciling interfaces for Target", logTargetID, targetID, "error", err)
+		log.Warnw("Failed reconciling links for Target", logTargetID, targetID, "error", err)
 		return controller.Result{}, err
 	}
 
-	var pbPathElements []*gnmi.PathElem
-	pbPathElements = append(pbPathElements, &gnmi.PathElem{Name: types.InterfacesPath})
-	gnmiPath := &gnmi.Path{
-		Elem:   pbPathElements,
-		Target: string(targetID),
-	}
-	var paths []*gnmi.Path
-	paths = append(paths, gnmiPath)
-	gnmiGetReq := &gnmi.GetRequest{
-		Type:     gnmi.GetRequest_STATE,
-		Encoding: gnmi.Encoding_JSON_IETF,
-		Path:     paths,
+	getReq, err := gnmicapi.NewGetRequest(
+		gnmicapi.Encoding("json_ietf"),
+		gnmicapi.DataType("state"),
+		gnmicapi.Target(string(targetID)),
+		gnmicapi.Path(types.InterfacesPath))
+	if err != nil {
+		if err != nil {
+			log.Warnw("Failed reconciling links for Target", logTargetID, targetID, "error", err)
+			return controller.Result{}, err
+		}
 	}
 
-	getResponse, err := gnmiClient.Get(ctx, gnmiGetReq)
+	getResponse, err := gnmiClient.Get(ctx, getReq)
 	if err != nil {
 		log.Warnw("Failed reconciling links for Target", logTargetID, targetID, "error", err)
 		return controller.Result{}, err

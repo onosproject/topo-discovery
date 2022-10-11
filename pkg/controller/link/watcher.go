@@ -52,6 +52,17 @@ func (w *TopoWatcher) Start(ch chan<- controller.ID) error {
 
 					}
 				}
+				if relation.Relation.KindID == topoapi.ContainsKind {
+					targetID := relation.Relation.TgtEntityID
+					targetEntity, err := w.topo.Get(ctx, targetID)
+					if err == nil {
+						err = targetEntity.GetAspect(&topoapi.PhyInterface{})
+						if err == nil {
+							ch <- controller.NewID(relation.Relation.SrcEntityID)
+						}
+					}
+
+				}
 			}
 
 		}

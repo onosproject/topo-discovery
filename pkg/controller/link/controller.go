@@ -92,6 +92,7 @@ func (r *Reconciler) extractLinks(interfaces types.OpenconfigInterfaces) ([]*top
 			}
 		}
 	}
+	log.Debugw("Extracted links from interfaces", "links", links)
 
 	return links, nil
 }
@@ -214,10 +215,12 @@ func (r *Reconciler) findInterface(ctx context.Context, ip string) (topoapi.ID, 
 func (r *Reconciler) createLinkEntity(ctx context.Context, link *topoapi.Link) (bool, error) {
 	sourceInterfaceID, err := r.findInterface(ctx, link.SourceIP.GetIP())
 	if err != nil {
+		log.Warnw("Source interface not found", "source IP", link.SourceIP.GetIP(), "error", err)
 		return false, nil
 	}
 	destInterfaceID, err := r.findInterface(ctx, link.DestinationIP.GetIP())
 	if err != nil {
+		log.Warnw("Dest interface not found", "dest IP", link.DestinationIP.GetIP(), "error", err)
 		return false, nil
 	}
 

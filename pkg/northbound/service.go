@@ -45,24 +45,36 @@ type Server struct {
 
 // AddPod adds a new POD entity with the requisite aspects
 func (s Server) AddPod(ctx context.Context, request *api.AddPodRequest) (*api.AddPodResponse, error) {
-	//TODO implement me
-	panic("implement me")
+	log.Infof("Creating new pod %s", request.ID)
+	if err := s.controller.AddPod(ctx, request); err != nil {
+		return nil, err
+	}
+	return &api.AddPodResponse{}, nil
 }
 
 // AddRack adds a new rack entity with the requisite aspects as part of a POD
 func (s Server) AddRack(ctx context.Context, request *api.AddRackRequest) (*api.AddRackResponse, error) {
-	//TODO implement me
-	panic("implement me")
+	log.Infof("Creating new pod %s", request.ID)
+	if err := s.controller.AddRack(ctx, request); err != nil {
+		return nil, err
+	}
+	return &api.AddRackResponse{}, nil
 }
 
 // AddSwitch adds a new switch entity with the requisite aspects into a rack
 func (s Server) AddSwitch(ctx context.Context, request *api.AddSwitchRequest) (*api.AddSwitchResponse, error) {
-	//TODO implement me
-	panic("implement me")
+	log.Infof("Creating new pod %s", request.ID)
+	if err := s.controller.AddSwitch(ctx, request); err != nil {
+		return nil, err
+	}
+	return &api.AddSwitchResponse{}, nil
 }
 
 // AddServerIPU adds a new server entity and an associated IPU entity, both with the requisite aspects into a rack
 func (s Server) AddServerIPU(ctx context.Context, request *api.AddServerIPURequest) (*api.AddServerIPUResponse, error) {
-	//TODO implement me
-	panic("implement me")
+	log.Infof("Creating new pod %s", request.ID)
+	if err := s.controller.AddServerIPU(ctx, request); err != nil {
+		return nil, err
+	}
+	return &api.AddServerIPUResponse{}, nil
 }

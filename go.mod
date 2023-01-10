@@ -4,7 +4,8 @@ go 1.19
 
 require (
 	github.com/atomix/runtime/sdk v0.7.4
-	github.com/onosproject/onos-api/go v0.10.17
+	github.com/gogo/protobuf v1.3.2
+	github.com/onosproject/onos-api/go v0.10.18
 	github.com/onosproject/onos-lib-go v0.10.5
 	github.com/spf13/cobra v1.5.0
 	google.golang.org/grpc v1.48.0
@@ -20,7 +21,6 @@ require (
 	github.com/eapache/queue v1.1.0 // indirect
 	github.com/ericchiang/oidc v0.0.0-20160908143337-11f62933e071 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
-	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect

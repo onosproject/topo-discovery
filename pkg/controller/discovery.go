@@ -4,12 +4,44 @@
 
 package controller
 
-import topoapi "github.com/onosproject/onos-api/go/onos/topo"
+import (
+	topoapi "github.com/onosproject/onos-api/go/onos/topo"
+	"io"
+	"time"
+)
 
 func (c *Controller) runInitialDiscoverySweep() {
-	log.Infof("Running initial discovery sweep...")
-	c.setState(Initialized)
-	log.Infof("Initialized")
+	for c.getState() == Connected {
+		if err := c.runFullDiscoverySweep(); err == nil {
+			c.setState(Initialized)
+		} else {
+			log.Warnf("Unable to query onos-topo: %+v", err)
+			c.pauseIf(Disconnected, connectionRetryPause)
+		}
+	}
+}
+
+// Runs discovery sweep for all objects in our realm
+func (c *Controller) runFullDiscoverySweep() error {
+	log.Info("Starting full discovery sweep...")
+	filter := queryFilter(c.realmLabel, c.realmValue)
+	if entities, err := c.topoClient.Query(c.ctx, &topoapi.QueryRequest{Filters: filter}); err == nil {
+		for c.getState() != Stopped {
+			if entity, err := entities.Recv(); err == nil {
+				c.queue <- entity.Object
+			} else {
+				if err == io.EOF {
+					log.Info("Completed full discovery sweep")
+					return nil
+				}
+				log.Warnf("Unable to read query response: %+v", err)
+				return err
+			}
+		}
+	} else {
+		return err
+	}
+	return nil
 }
 
 // Returns filters for matching objects on realm label, entity type and with GNMIServer aspect.
@@ -54,5 +86,41 @@ func isRelevant(event topoapi.Event) bool {
 }
 
 func (c *Controller) monitorTopologyChanges() {
-	log.Infof("Monitoring topology changes...")
+	tPeriodic := time.NewTicker(2 * time.Minute)
+	tCheckState := time.NewTicker(2 * time.Second)
+
+	for c.getState() == Monitoring {
+		select {
+		// Periodically scan and reconcile all device configurations
+		case <-tPeriodic.C:
+			_ = c.runFullDiscoverySweep()
+
+		// Periodically pop-out to check state
+		case <-tCheckState.C:
+		}
+	}
+}
+
+// Discovery worker
+func (c *Controller) discover(workerID int) {
+	for object := range c.queue {
+		c.lock.Lock()
+
+		// Is this object being worked on already?
+		_, busy := c.workingOn[object.ID]
+		if !busy {
+			// If not, mark it as being worked on.
+			c.workingOn[object.ID] = object
+		}
+		c.lock.Unlock()
+		if !busy {
+			log.Infof("%d: Working on %s", workerID, object.ID)
+			time.Sleep(5 * time.Second) // TODO: implement this
+
+			// We're done working on this object
+			c.lock.Lock()
+			delete(c.workingOn, object.ID)
+			c.lock.Unlock()
+		}
+	}
 }

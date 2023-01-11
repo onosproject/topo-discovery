@@ -56,6 +56,7 @@ type Controller struct {
 	ctx         context.Context
 	ctxCancel   context.CancelFunc
 	queue       chan *topoapi.Object
+	workingOn   map[topoapi.ID]*topoapi.Object
 }
 
 // NewController creates a new topology discovery controller
@@ -68,6 +69,7 @@ func NewController(realmLabel string, realmValue string, topoAddress string, top
 		realmValue:  realmValue,
 		topoAddress: topoAddress,
 		topoOpts:    opts,
+		workingOn:   make(map[topoapi.ID]*topoapi.Object),
 	}
 }
 
@@ -75,11 +77,11 @@ func NewController(realmLabel string, realmValue string, topoAddress string, top
 func (c *Controller) Start() {
 	log.Infof("Starting...")
 
-	// Crate reconciliation job queue and workers
+	// Crate discovery job queue and workers
 	c.queue = make(chan *topoapi.Object, queueDepth)
-	//for i := 0; i < workerCount; i++ {
-	//	go c.reconcile(i)
-	//}
+	for i := 0; i < workerCount; i++ {
+		go c.discover(i)
+	}
 
 	go c.run()
 }

@@ -32,8 +32,8 @@ const (
 // SetupTestSuite sets up the fabric simulator basic test suite
 func (s *TestSuite) SetupTestSuite(c *input.Context) error {
 	registry := c.GetArg("registry").String("")
-	err := helm.Chart(topoName, onostest.OnosChartRepo).
-		Release(topoName).
+	err := helm.Chart(fabricSimComponentName, onostest.OnosChartRepo).
+		Release(fabricSimComponentName).
 		Set("image.tag", "latest").
 		Set("global.image.registry", registry).
 		Install(false)
@@ -41,11 +41,11 @@ func (s *TestSuite) SetupTestSuite(c *input.Context) error {
 		return err
 	}
 
-	err = helm.Chart(fabricSimComponentName, onostest.OnosChartRepo).
-		Release(fabricSimComponentName).
+	err = helm.Chart(topoName, onostest.OnosChartRepo).
+		Release(topoName).
 		Set("image.tag", "latest").
 		Set("global.image.registry", registry).
-		Install(false)
+		Install(true)
 	if err != nil {
 		return err
 	}

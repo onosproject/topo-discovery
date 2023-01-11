@@ -3,17 +3,20 @@ module github.com/onosproject/topo-discovery
 go 1.19
 
 require (
-	github.com/atomix/runtime/sdk v0.7.4
 	github.com/gogo/protobuf v1.3.2
 	github.com/onosproject/fabric-sim v0.1.20
 	github.com/onosproject/helmit v0.6.20
-	github.com/onosproject/onos-api/go v0.10.18
+	github.com/onosproject/onos-api/go v0.10.19
 	github.com/onosproject/onos-lib-go v0.10.5
+	github.com/onosproject/onos-net-lib v0.1.15
 	github.com/onosproject/onos-test v0.6.6
+	github.com/openconfig/gnmi v0.0.0-20220920173703-480bf53a74d2
 	github.com/spf13/cobra v1.5.0
 	github.com/stretchr/testify v1.8.0
 	google.golang.org/grpc v1.48.0
 )
+
+replace github.com/onosproject/onos-api/go => ../onos-api/go
 
 require (
 	cloud.google.com/go/compute v1.6.1 // indirect
@@ -30,6 +33,7 @@ require (
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/Shopify/sarama v1.32.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20200428143746-21a406dcc535 // indirect
+	github.com/atomix/runtime/sdk v0.7.4 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect

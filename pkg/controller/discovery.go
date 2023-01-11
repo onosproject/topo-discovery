@@ -5,7 +5,7 @@
 package controller
 
 import (
-	topoapi "github.com/onosproject/onos-api/go/onos/topo"
+	"github.com/onosproject/onos-api/go/onos/topo"
 	"io"
 	"time"
 )
@@ -25,7 +25,7 @@ func (c *Controller) runInitialDiscoverySweep() {
 func (c *Controller) runFullDiscoverySweep() error {
 	log.Info("Starting full discovery sweep...")
 	filter := queryFilter(c.realmLabel, c.realmValue)
-	if entities, err := c.topoClient.Query(c.ctx, &topoapi.QueryRequest{Filters: filter}); err == nil {
+	if entities, err := c.topoClient.Query(c.ctx, &topo.QueryRequest{Filters: filter}); err == nil {
 		for c.getState() != Stopped {
 			if entity, err := entities.Recv(); err == nil {
 				c.queue <- entity.Object
@@ -45,14 +45,14 @@ func (c *Controller) runFullDiscoverySweep() error {
 }
 
 // Returns filters for matching objects on realm label, entity type and with GNMIServer aspect.
-func queryFilter(realmLabel string, realmValue string) *topoapi.Filters {
-	return &topoapi.Filters{
-		LabelFilters: []*topoapi.Filter{{
-			Filter: &topoapi.Filter_Equal_{Equal_: &topoapi.EqualFilter{Value: realmValue}},
+func queryFilter(realmLabel string, realmValue string) *topo.Filters {
+	return &topo.Filters{
+		LabelFilters: []*topo.Filter{{
+			Filter: &topo.Filter_Equal_{Equal_: &topo.EqualFilter{Value: realmValue}},
 			Key:    realmLabel,
 		}},
-		ObjectTypes: []topoapi.Object_Type{topoapi.Object_ENTITY},
-		WithAspects: []string{"onos.topo.GNMIServer"},
+		ObjectTypes: []topo.Object_Type{topo.Object_ENTITY},
+		WithAspects: []string{"onos.topo.gNMIServer", "onos.topo.P4RuntimeServer"},
 	}
 }
 
@@ -60,7 +60,7 @@ func queryFilter(realmLabel string, realmValue string) *topoapi.Filters {
 func (c *Controller) prepareForMonitoring() {
 	filter := queryFilter(c.realmLabel, c.realmValue)
 	log.Infof("Starting to watch onos-topo via %+v", filter)
-	stream, err := c.topoClient.Watch(c.ctx, &topoapi.WatchRequest{Filters: filter})
+	stream, err := c.topoClient.Watch(c.ctx, &topo.WatchRequest{Filters: filter})
 	if err != nil {
 		log.Warnf("Unable to start onos-topo watch: %+v", err)
 		c.setState(Disconnected)
@@ -81,8 +81,8 @@ func (c *Controller) prepareForMonitoring() {
 }
 
 // Returns true if the object is relevant to the controller
-func isRelevant(event topoapi.Event) bool {
-	return event.Type != topoapi.EventType_REMOVED
+func isRelevant(event topo.Event) bool {
+	return event.Type != topo.EventType_REMOVED
 }
 
 func (c *Controller) monitorTopologyChanges() {
@@ -115,7 +115,10 @@ func (c *Controller) discover(workerID int) {
 		c.lock.Unlock()
 		if !busy {
 			log.Infof("%d: Working on %s", workerID, object.ID)
-			time.Sleep(5 * time.Second) // TODO: implement this
+			c.discoverPorts(object)
+			// c.discoverLinks(object)
+			// c.discoverAtachedHosts(object)
+			log.Infof("%d: Finished work on %s", workerID, object.ID)
 
 			// We're done working on this object
 			c.lock.Lock()

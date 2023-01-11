@@ -2,141 +2,63 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+// Package manager contains the topology discovery manager coordinating lifecycle of the NB API and SB controller
 package manager
 
 import (
 	"github.com/onosproject/onos-lib-go/pkg/certs"
+	"github.com/onosproject/onos-lib-go/pkg/cli"
 	"github.com/onosproject/onos-lib-go/pkg/logging"
 	"github.com/onosproject/onos-lib-go/pkg/northbound"
-	"github.com/onosproject/topo-discovery/pkg/controller/link"
-	"github.com/onosproject/topo-discovery/pkg/controller/linkrelation"
-	"github.com/onosproject/topo-discovery/pkg/controller/phyinterface"
-	"github.com/onosproject/topo-discovery/pkg/controller/phyinterfacerelation"
-	"github.com/onosproject/topo-discovery/pkg/store/topo"
+	"github.com/onosproject/topo-discovery/pkg/controller"
+	nb "github.com/onosproject/topo-discovery/pkg/northbound"
 )
 
-var log = logging.GetLogger()
+var log = logging.GetLogger("manager")
 
-// Config is app manager
+// Config is a manager configuration
 type Config struct {
-	CAPath      string
-	KeyPath     string
-	CertPath    string
-	TopoAddress string
-	GRPCPort    int
-	P4Plugins   []string
+	RealmLabel   string
+	RealmValue   string
+	TopoAddress  string
+	ServiceFlags *cli.ServiceEndpointFlags
 }
 
-// Manager single point of entry for the device-provisioner application
+// Manager single point of entry for the topology discovery
 type Manager struct {
-	Config Config
+	cli.Daemon
+	Config     Config
+	controller *controller.Controller
 }
 
 // NewManager initializes the application manager
 func NewManager(cfg Config) *Manager {
-	log.Info("Creating application manager")
-	mgr := Manager{
-		Config: cfg,
-	}
-	return &mgr
+	log.Infof("Creating manager")
+	return &Manager{Config: cfg}
 }
 
-// Run runs application manager
-func (m *Manager) Run() {
-	log.Info("Starting application Manager")
+// Start initializes and starts the manager.
+func (m *Manager) Start() error {
+	log.Info("Starting Manager")
 
-	if err := m.start(); err != nil {
-		log.Fatal("Unable to run Manager", "error", err)
-	}
-}
-
-func (m *Manager) start() error {
-
-	opts, err := certs.HandleCertPaths(m.Config.CAPath, m.Config.KeyPath, m.Config.CertPath, true)
+	// Initialize and start the configuration discovery controller
+	opts, err := certs.HandleCertPaths(m.Config.ServiceFlags.CAPath, m.Config.ServiceFlags.KeyPath, m.Config.ServiceFlags.CertPath, true)
 	if err != nil {
 		return err
 	}
 
-	/*appsdk.StartController(appsdk.Config{
-		CAPath:      m.Config.CAPath,
-		CertPath:    m.Config.CertPath,
-		KeyPath:     m.Config.KeyPath,
-		TopoAddress: m.Config.TopoAddress,
-	})*/
+	m.controller = controller.NewController(m.Config.RealmLabel, m.Config.RealmValue, m.Config.TopoAddress, opts...)
+	m.controller.Start()
 
-	// Create new topo store
-	topoStore, err := topo.NewStore(m.Config.TopoAddress, opts...)
-	if err != nil {
-		return err
-	}
-
-	err = m.startInterfaceController(topoStore)
-	if err != nil {
-		return err
-	}
-
-	err = m.startInterfaceRelationController(topoStore)
-	if err != nil {
-		return err
-	}
-
-	err = m.startLinkController(topoStore)
-	if err != nil {
-		return err
-	}
-
-	err = m.startLinkRelationController(topoStore)
-	if err != nil {
-		return err
-	}
-
-	err = m.startNorthboundServer()
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// startSouthboundServer starts the northbound gRPC server
-func (m *Manager) startNorthboundServer() error {
-	log.Info("Starting NB server")
-	s := northbound.NewServer(northbound.NewServerCfg(
-		m.Config.CAPath,
-		m.Config.KeyPath,
-		m.Config.CertPath,
-		int16(m.Config.GRPCPort),
-		true,
-		northbound.SecurityConfig{}))
+	// Start NB server
+	s := northbound.NewServer(cli.ServerConfigFromFlags(m.Config.ServiceFlags, northbound.SecurityConfig{}))
 	s.AddService(logging.Service{})
-
-	doneCh := make(chan error)
-	go func() {
-		err := s.Serve(func(started string) {
-			log.Info("Started NBI on ", started)
-			close(doneCh)
-		})
-		if err != nil {
-			doneCh <- err
-		}
-	}()
-	return <-doneCh
+	s.AddService(nb.NewService(m.controller))
+	return s.StartInBackground()
 }
 
-func (m *Manager) startInterfaceController(topo topo.Store) error {
-	portController := phyinterface.NewController(topo)
-	return portController.Start()
-}
-
-func (m *Manager) startInterfaceRelationController(topo topo.Store) error {
-	portRelationController := phyinterfacerelation.NewController(topo)
-	return portRelationController.Start()
-}
-
-func (m *Manager) startLinkController(topo topo.Store) error {
-	linkController := link.NewController(topo)
-	return linkController.Start()
-}
-func (m *Manager) startLinkRelationController(topo topo.Store) error {
-	linkRelationController := linkrelation.NewController(topo)
-	return linkRelationController.Start()
+// Stop stops the manager
+func (m *Manager) Stop() {
+	log.Info("Stopping Manager")
+	m.controller.Stop()
 }

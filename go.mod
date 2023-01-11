@@ -16,8 +16,6 @@ require (
 	google.golang.org/grpc v1.48.0
 )
 
-replace github.com/onosproject/onos-api/go => ../onos-api/go
-
 require (
 	cloud.google.com/go/compute v1.6.1 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect

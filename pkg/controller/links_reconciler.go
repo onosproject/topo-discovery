@@ -47,7 +47,6 @@ func (r *LinkReconciler) DiscoverLinks(object *topo.Object) {
 		log.Warnf("Unable to get links from device link agent %s", object.ID)
 		return
 	}
-	log.Infof("%s: %+v", linkReport.AgentID, linkReport.Links)
 
 	// Register the report and agent ID
 	linksToProcess := r.registerReport(linkReport)
@@ -144,7 +143,7 @@ func (r *LinkReconciler) createLink(linkID topo.ID, egressPortID topo.ID, ingres
 		log.Warnf("Unable to create terminates relation for link %s: %+v", linkID, err)
 		return
 	}
-	log.Infof("Link %s created", linkID)
+	log.Infof("Created link %s", linkID)
 }
 
 func (r *LinkReconciler) updateLinkIfNeeded(object *topo.Object, link *southbound.Link) {

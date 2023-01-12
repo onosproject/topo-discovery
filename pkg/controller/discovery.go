@@ -116,7 +116,7 @@ func (c *Controller) discover(workerID int) {
 		if !busy {
 			log.Infof("%d: Working on %s", workerID, object.ID)
 			c.discoverPorts(object)
-			// c.discoverLinks(object)
+			c.discoverLinks(object)
 			// c.discoverAtachedHosts(object)
 			log.Infof("%d: Finished work on %s", workerID, object.ID)
 

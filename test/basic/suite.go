@@ -6,12 +6,15 @@
 package basic
 
 import (
+	"context"
 	fsimtopo "github.com/onosproject/fabric-sim/pkg/topo"
 	"github.com/onosproject/helmit/pkg/helm"
 	"github.com/onosproject/helmit/pkg/input"
 	"github.com/onosproject/helmit/pkg/test"
+	"github.com/onosproject/onos-api/go/onos/provisioner"
 	libtest "github.com/onosproject/onos-lib-go/pkg/test"
 	"github.com/onosproject/onos-test/pkg/onostest"
+	"os"
 )
 
 type testSuite struct {
@@ -23,38 +26,25 @@ type TestSuite struct {
 	testSuite
 }
 
-const (
-	topoName               = "onos-topo"
-	fabricSimComponentName = "fabric-sim"
-	topoDiscoveryName      = "topo-discovery"
-)
-
 // SetupTestSuite sets up the fabric simulator basic test suite
 func (s *TestSuite) SetupTestSuite(c *input.Context) error {
 	registry := c.GetArg("registry").String("")
-	err := helm.Chart(fabricSimComponentName, onostest.OnosChartRepo).
-		Release(fabricSimComponentName).
-		Set("image.tag", "latest").
-		Set("global.image.registry", registry).
-		Install(false)
+	err := installChart("fabric-sim", registry, false)
 	if err != nil {
 		return err
 	}
 
-	err = helm.Chart(topoName, onostest.OnosChartRepo).
-		Release(topoName).
-		Set("image.tag", "latest").
-		Set("global.image.registry", registry).
-		Install(true)
+	err = installChart("onos-topo", registry, false)
 	if err != nil {
 		return err
 	}
 
-	err = helm.Chart(topoDiscoveryName, onostest.OnosChartRepo).
-		Release(topoDiscoveryName).
-		Set("image.tag", "latest").
-		Set("global.image.registry", registry).
-		Install(true)
+	err = installChart("device-provisioner", registry, true)
+	if err != nil {
+		return err
+	}
+
+	err = installChart("topo-discovery", registry, true)
 	if err != nil {
 		return err
 	}
@@ -69,5 +59,51 @@ func (s *TestSuite) SetupTestSuite(c *input.Context) error {
 		return err
 	}
 
+	if err = createPipelineConfig(); err != nil {
+		return err
+	}
+
+	err = installChart("link-local-agent", registry, false)
+	if err != nil {
+		return err
+	}
+
 	return nil
+}
+
+func installChart(name string, registry string, wait bool) error {
+	return helm.Chart(name, onostest.OnosChartRepo).Release(name).
+		Set("image.tag", "latest").
+		Set("global.image.registry", registry).
+		Set("agent.count", 4). // There are 4 devices in topo.yaml topology file
+		Install(true)
+}
+
+func createPipelineConfig() error {
+	conn, err := libtest.CreateConnection("device-provisioner:5150", false)
+	if err != nil {
+		return err
+	}
+
+	p4infoBytes, err := os.ReadFile("./test/basic/p4info.txt")
+	if err != nil {
+		return err
+	}
+
+	// Add pipeline config
+	ctx := context.Background()
+	provClient := provisioner.NewProvisionerServiceClient(conn)
+	_, err = provClient.Add(ctx, &provisioner.AddConfigRequest{
+		Config: &provisioner.Config{
+			Record: &provisioner.ConfigRecord{
+				ConfigID: pipelineConfigID,
+				Kind:     provisioner.PipelineConfigKind,
+			},
+			Artifacts: map[string][]byte{
+				provisioner.P4InfoType:   p4infoBytes,
+				provisioner.P4BinaryType: p4infoBytes,
+			},
+		},
+	})
+	return err
 }

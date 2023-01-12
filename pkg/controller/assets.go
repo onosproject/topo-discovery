@@ -8,7 +8,7 @@ package controller
 import (
 	"context"
 	"fmt"
-	"github.com/gogo/protobuf/types"
+	"github.com/gogo/protobuf/proto"
 	api "github.com/onosproject/onos-api/go/onos/discovery"
 	"github.com/onosproject/onos-api/go/onos/provisioner"
 	topo "github.com/onosproject/onos-api/go/onos/topo"
@@ -72,19 +72,15 @@ func (c *Controller) AddServerIPU(ctx context.Context, req *api.AddServerIPURequ
 	return c.createRelation(ctx, req.ID, ipuID, topo.CONTAINS)
 }
 
-// Produces a set of aspects for Stratum switch/IPU
-func aspects(chassisConfigID string, pipelineConfigID string, gnmiEndpoint string, p4Endpoint string) []*types.Any {
-	return []*types.Any{
-		topo.ToAny(&provisioner.DeviceConfig{
+// Produces a set of aspects for Stratum switch/IPU entity
+func aspects(chassisConfigID string, pipelineConfigID string, gnmiEndpoint string, p4Endpoint string) []proto.Message {
+	return []proto.Message{
+		&provisioner.DeviceConfig{
 			ChassisConfigID:  provisioner.ConfigID(chassisConfigID),
 			PipelineConfigID: provisioner.ConfigID(pipelineConfigID),
-		}),
-		topo.ToAny(&topo.GNMIServer{
-			Endpoint: endpoint(gnmiEndpoint),
-		}),
-		topo.ToAny(&topo.P4RuntimeServer{
-			Endpoint: endpoint(p4Endpoint),
-		}),
+		},
+		&topo.GNMIServer{Endpoint: endpoint(gnmiEndpoint)},
+		&topo.P4RuntimeServer{Endpoint: endpoint(p4Endpoint)},
 	}
 }
 
@@ -106,36 +102,18 @@ func labels(pod string, rack string) map[string]string {
 	return map[string]string{topo.PodKind: pod, topo.RackKind: rack}
 }
 
-func (c *Controller) createEntity(ctx context.Context, id string, kindID string, aspectList []*types.Any, labels map[string]string) error {
-	aspects := map[string]*types.Any{}
-	for _, aspect := range aspectList {
-		aspects[aspect.TypeUrl] = aspect
+func (c *Controller) createEntity(ctx context.Context, id string, kindID string, aspects []proto.Message, labels map[string]string) error {
+	object, err := topo.NewEntity(topo.ID(id), topo.ID(kindID)).WithAspects(aspects...)
+	if err != nil {
+		return err
 	}
-	_, err := c.topoClient.Create(ctx, &topo.CreateRequest{
-		Object: &topo.Object{
-			ID:      topo.ID(id),
-			Type:    topo.Object_ENTITY,
-			Aspects: aspects,
-			Obj:     &topo.Object_Entity{Entity: &topo.Entity{KindID: topo.ID(kindID)}},
-			Labels:  labels,
-		},
-	})
+	object.Labels = labels
+	_, err = c.topoClient.Create(ctx, &topo.CreateRequest{Object: object})
 	return err
 }
 
 func (c *Controller) createRelation(ctx context.Context, src string, tgt string, kindID string) error {
-	_, err := c.topoClient.Create(ctx, &topo.CreateRequest{
-		Object: &topo.Object{
-			ID:   topo.ID(src + tgt + kindID),
-			Type: topo.Object_RELATION,
-			Obj: &topo.Object_Relation{
-				Relation: &topo.Relation{
-					SrcEntityID: topo.ID(src),
-					TgtEntityID: topo.ID(tgt),
-					KindID:      topo.ID(kindID),
-				},
-			},
-		},
-	})
+	relation := topo.NewRelation(topo.ID(src), topo.ID(tgt), topo.ID(kindID), nil)
+	_, err := c.topoClient.Create(ctx, &topo.CreateRequest{Object: relation})
 	return err
 }

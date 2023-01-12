@@ -8,7 +8,7 @@ package controller
 import (
 	"context"
 	"fmt"
-	"github.com/gogo/protobuf/types"
+	"github.com/gogo/protobuf/proto"
 	api "github.com/onosproject/onos-api/go/onos/discovery"
 	"github.com/onosproject/onos-api/go/onos/provisioner"
 	topo "github.com/onosproject/onos-api/go/onos/topo"
@@ -45,7 +45,7 @@ func (c *Controller) AddSwitch(ctx context.Context, req *api.AddSwitchRequest) e
 	if c.getState() != Monitoring {
 		return errors.NewUnavailable(controllerNotReady)
 	}
-	al := aspects(req.ChassisConfigID, req.PipelineConfigID, req.GNMIEndpoint, req.P4Endpoint)
+	al := aspects(req.ManagementInfo)
 	if err := c.createEntity(ctx, req.ID, topo.SwitchKind, al, labels(req.PodID, req.RackID)); err != nil {
 		return err
 	}
@@ -65,27 +65,43 @@ func (c *Controller) AddServerIPU(ctx context.Context, req *api.AddServerIPURequ
 	}
 
 	ipuID := fmt.Sprintf("%s-IPU", req.ID)
-	al := aspects(req.ChassisConfigID, req.PipelineConfigID, req.GNMIEndpoint, req.P4Endpoint)
+	al := aspects(req.ManagementInfo)
 	if err := c.createEntity(ctx, ipuID, topo.IPUKind, al, labels(req.PodID, req.RackID)); err != nil {
 		return err
 	}
 	return c.createRelation(ctx, req.ID, ipuID, topo.CONTAINS)
 }
 
-// Produces a set of aspects for Stratum switch/IPU
-func aspects(chassisConfigID string, pipelineConfigID string, gnmiEndpoint string, p4Endpoint string) []*types.Any {
-	return []*types.Any{
-		topo.ToAny(&provisioner.DeviceConfig{
-			ChassisConfigID:  provisioner.ConfigID(chassisConfigID),
-			PipelineConfigID: provisioner.ConfigID(pipelineConfigID),
-		}),
-		topo.ToAny(&topo.GNMIServer{
-			Endpoint: endpoint(gnmiEndpoint),
-		}),
-		topo.ToAny(&topo.P4RuntimeServer{
-			Endpoint: endpoint(p4Endpoint),
-		}),
+// Produces a set of aspects for Stratum switch/IPU entity
+func aspects(info *api.ManagementInfo) []proto.Message {
+	list := make([]proto.Message, 0, 1)
+	if len(info.GNMIEndpoint) > 0 || len(info.P4RTEndpoint) > 0 {
+		list = append(list, &topo.StratumAgents{
+			P4RTEndpoint: endpoint(info.P4RTEndpoint),
+			GNMIEndpoint: endpoint(info.GNMIEndpoint),
+			DeviceID:     info.DeviceID,
+		},
+			// TODO: Remove when these aspects are deprecated
+			&topo.P4RuntimeServer{Endpoint: endpoint(info.P4RTEndpoint), DeviceID: info.DeviceID},
+			&topo.GNMIServer{Endpoint: endpoint(info.GNMIEndpoint)},
+		)
 	}
+
+	if len(info.ChassisConfigID) > 0 || len(info.PipelineConfigID) > 0 {
+		list = append(list, &provisioner.DeviceConfig{
+			ChassisConfigID:  provisioner.ConfigID(info.ChassisConfigID),
+			PipelineConfigID: provisioner.ConfigID(info.PipelineConfigID),
+		})
+	}
+
+	if len(info.LinkAgentEndpoint) > 0 || len(info.HostAgentEndpoint) > 0 || len(info.NatAgentEndpoint) > 0 {
+		list = append(list, &topo.LocalAgents{
+			LinkAgentEndpoint: endpoint(info.LinkAgentEndpoint),
+			HostAgentEndpoint: endpoint(info.HostAgentEndpoint),
+			NATAgentEndpoint:  endpoint(info.NatAgentEndpoint),
+		})
+	}
+	return list
 }
 
 // Produces an endpoint from a host:port string
@@ -106,36 +122,18 @@ func labels(pod string, rack string) map[string]string {
 	return map[string]string{topo.PodKind: pod, topo.RackKind: rack}
 }
 
-func (c *Controller) createEntity(ctx context.Context, id string, kindID string, aspectList []*types.Any, labels map[string]string) error {
-	aspects := map[string]*types.Any{}
-	for _, aspect := range aspectList {
-		aspects[aspect.TypeUrl] = aspect
+func (c *Controller) createEntity(ctx context.Context, id string, kindID string, aspects []proto.Message, labels map[string]string) error {
+	object, err := topo.NewEntity(topo.ID(id), topo.ID(kindID)).WithAspects(aspects...)
+	if err != nil {
+		return err
 	}
-	_, err := c.topoClient.Create(ctx, &topo.CreateRequest{
-		Object: &topo.Object{
-			ID:      topo.ID(id),
-			Type:    topo.Object_ENTITY,
-			Aspects: aspects,
-			Obj:     &topo.Object_Entity{Entity: &topo.Entity{KindID: topo.ID(kindID)}},
-			Labels:  labels,
-		},
-	})
+	object.Labels = labels
+	_, err = c.topoClient.Create(ctx, &topo.CreateRequest{Object: object})
 	return err
 }
 
 func (c *Controller) createRelation(ctx context.Context, src string, tgt string, kindID string) error {
-	_, err := c.topoClient.Create(ctx, &topo.CreateRequest{
-		Object: &topo.Object{
-			ID:   topo.ID(src + tgt + kindID),
-			Type: topo.Object_RELATION,
-			Obj: &topo.Object_Relation{
-				Relation: &topo.Relation{
-					SrcEntityID: topo.ID(src),
-					TgtEntityID: topo.ID(tgt),
-					KindID:      topo.ID(kindID),
-				},
-			},
-		},
-	})
+	relation := topo.NewRelation(topo.ID(src), topo.ID(tgt), topo.ID(kindID), nil)
+	_, err := c.topoClient.Create(ctx, &topo.CreateRequest{Object: relation})
 	return err
 }

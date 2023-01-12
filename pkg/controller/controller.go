@@ -55,6 +55,9 @@ type Controller struct {
 	ctxCancel   context.CancelFunc
 	queue       chan *topo.Object
 	workingOn   map[topo.ID]*topo.Object
+
+	portReconciler *PortReconciler
+	linkReconciler *LinkReconciler
 }
 
 // NewController creates a new topology discovery controller
@@ -146,6 +149,8 @@ func (c *Controller) waitForTopoConnection() {
 			c.conn = conn
 			c.topoClient = topo.CreateTopoClient(conn)
 			c.ctx, c.ctxCancel = context.WithCancel(context.Background())
+			c.portReconciler = NewPortReconciler(c.ctx, c.topoClient)
+			c.linkReconciler = NewLinkReconciler(c.ctx, c.topoClient)
 			c.setState(Connected)
 			log.Infof("Connected")
 		} else {

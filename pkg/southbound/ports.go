@@ -19,7 +19,7 @@ var log = logging.GetLogger("southbound")
 // GetPorts returns a map of port descriptors obtained via gNMI get request on /interfaces/interface[name=...] query
 func GetPorts(object *topo.Object) (map[string]*topo.Port, error) {
 	// Connect to the device using gNMI
-	device, err := stratum.NewGNMI(object, true)
+	device, err := stratum.NewStratumGNMI(object, true)
 	if err != nil {
 		log.Warnf("Unable to connect to Stratum device gNMI %s: %+v", object.ID, err)
 		return nil, err

@@ -5,13 +5,29 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"github.com/onosproject/onos-api/go/onos/topo"
 	"github.com/onosproject/topo-discovery/pkg/southbound"
 	"io"
 )
 
-func (c *Controller) discoverPorts(object *topo.Object) {
+// TODO: Presently, the port discovery is implemented using a periodic poll via gNMI Get.
+// It should be augmented with gNMI subscribe since Stratum does appears to support it.
+
+// PortReconciler provides state and context required for port discovery and reconciliation
+type PortReconciler struct {
+	topoClient topo.TopoClient
+	ctx        context.Context
+}
+
+// NewPortReconciler creates a new port reconciler context
+func NewPortReconciler(ctx context.Context, topoClient topo.TopoClient) *PortReconciler {
+	return &PortReconciler{topoClient: topoClient, ctx: ctx}
+}
+
+// DiscoverPorts discovers ports and reconciles their topology entity counterparts
+func (r *PortReconciler) DiscoverPorts(object *topo.Object) {
 	// Connect to the gNMI server and get list of ports
 	devicePorts, err := southbound.GetPorts(object)
 	if err != nil {
@@ -20,7 +36,7 @@ func (c *Controller) discoverPorts(object *topo.Object) {
 	}
 
 	// Get device port entities from topology
-	topoPorts, err := c.getPorts(object)
+	topoPorts, err := r.getPorts(object)
 	if err != nil {
 		log.Warnf("Unable to get existing ports for device %s", object.ID)
 		return
@@ -33,10 +49,10 @@ func (c *Controller) discoverPorts(object *topo.Object) {
 		topoPort, ok := topoPorts[portID]
 		if !ok {
 			// port object not found, create one with port aspect and a switch->port 'has' relation
-			c.createPort(object, portID, p)
+			r.createPort(object, portID, p)
 		} else {
 			// update port object with port aspect if needed
-			c.updatePortIfNeeded(topoPort, p)
+			r.updatePortIfNeeded(topoPort, p)
 		}
 		usedPortIDs[portID] = portID
 	}
@@ -44,13 +60,13 @@ func (c *Controller) discoverPorts(object *topo.Object) {
 	// Remove any ports if needed
 	for _, port := range topoPorts {
 		if _, ok := usedPortIDs[port.ID]; !ok {
-			c.deletePort(port.ID)
+			r.deletePort(port.ID)
 		}
 	}
 }
 
-func (c *Controller) getPorts(object *topo.Object) (map[topo.ID]*topo.Object, error) {
-	stream, err := c.topoClient.Query(c.ctx, &topo.QueryRequest{Filters: &topo.Filters{
+func (r *PortReconciler) getPorts(object *topo.Object) (map[topo.ID]*topo.Object, error) {
+	stream, err := r.topoClient.Query(r.ctx, &topo.QueryRequest{Filters: &topo.Filters{
 		RelationFilter: &topo.RelationFilter{
 			SrcId:        string(object.ID),
 			RelationKind: topo.HasKind,
@@ -75,25 +91,25 @@ func (c *Controller) getPorts(object *topo.Object) (map[topo.ID]*topo.Object, er
 	}
 }
 
-func (c *Controller) createPort(object *topo.Object, portID topo.ID, port *topo.Port) {
+func (r *PortReconciler) createPort(object *topo.Object, portID topo.ID, port *topo.Port) {
 	portObject, err := topo.NewEntity(portID, topo.PortKind).WithAspects(port)
 	if err != nil {
 		log.Warnf("Unable to allocate port entity %s: %+v", portID, err)
 		return
 	}
-	if _, err = c.topoClient.Create(c.ctx, &topo.CreateRequest{Object: portObject}); err != nil {
+	if _, err = r.topoClient.Create(r.ctx, &topo.CreateRequest{Object: portObject}); err != nil {
 		log.Warnf("Unable to create port entity %s: %+v", portID, err)
 		return
 	}
 	hasRelation := topo.NewRelation(object.ID, portID, topo.HasKind)
-	if _, err = c.topoClient.Create(c.ctx, &topo.CreateRequest{Object: hasRelation}); err != nil {
+	if _, err = r.topoClient.Create(r.ctx, &topo.CreateRequest{Object: hasRelation}); err != nil {
 		log.Warnf("Unable to create switch-port relation %s: %+v", hasRelation.ID, err)
 		return
 	}
 	log.Infof("Created port %s: %+v", portID, port)
 }
 
-func (c *Controller) updatePortIfNeeded(topoPort *topo.Object, port *topo.Port) {
+func (r *PortReconciler) updatePortIfNeeded(topoPort *topo.Object, port *topo.Port) {
 	topoPortAspect := &topo.Port{}
 	if err := topoPort.GetAspect(topoPortAspect); err != nil {
 		log.Warnf("Unable to get port aspect for %s: %+v", topoPort.ID, err)
@@ -105,7 +121,7 @@ func (c *Controller) updatePortIfNeeded(topoPort *topo.Object, port *topo.Port) 
 			log.Warnf("Unable to update port aspect for %s: %+v", topoPort.ID, err)
 			return
 		}
-		if _, err := c.topoClient.Update(c.ctx, &topo.UpdateRequest{Object: topoPort}); err != nil {
+		if _, err := r.topoClient.Update(r.ctx, &topo.UpdateRequest{Object: topoPort}); err != nil {
 			log.Warnf("Unable to update port entity %s: %+v", topoPort.ID, err)
 			return
 		}
@@ -113,8 +129,8 @@ func (c *Controller) updatePortIfNeeded(topoPort *topo.Object, port *topo.Port) 
 	}
 }
 
-func (c *Controller) deletePort(portID topo.ID) {
-	if _, err := c.topoClient.Delete(c.ctx, &topo.DeleteRequest{ID: portID}); err != nil {
+func (r *PortReconciler) deletePort(portID topo.ID) {
+	if _, err := r.topoClient.Delete(r.ctx, &topo.DeleteRequest{ID: portID}); err != nil {
 		log.Warnf("Unable to delete port entity %s: %+v", portID, err)
 		return
 	}

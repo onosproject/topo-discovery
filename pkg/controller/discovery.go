@@ -52,7 +52,7 @@ func queryFilter(realmLabel string, realmValue string) *topo.Filters {
 			Key:    realmLabel,
 		}},
 		ObjectTypes: []topo.Object_Type{topo.Object_ENTITY},
-		WithAspects: []string{"onos.topo.gNMIServer", "onos.topo.P4RuntimeServer"},
+		WithAspects: []string{"onos.topo.StratumAgents"},
 	}
 }
 
@@ -86,12 +86,12 @@ func isRelevant(event topo.Event) bool {
 }
 
 func (c *Controller) monitorTopologyChanges() {
-	tPeriodic := time.NewTicker(2 * time.Minute)
+	tPeriodic := time.NewTicker(30 * time.Second)
 	tCheckState := time.NewTicker(2 * time.Second)
 
 	for c.getState() == Monitoring {
 		select {
-		// Periodically scan and reconcile all device configurations
+		// Periodically run a full discovery sweep
 		case <-tPeriodic.C:
 			_ = c.runFullDiscoverySweep()
 
@@ -115,8 +115,8 @@ func (c *Controller) discover(workerID int) {
 		c.lock.Unlock()
 		if !busy {
 			log.Infof("%d: Working on %s", workerID, object.ID)
-			c.discoverPorts(object)
-			c.discoverLinks(object)
+			c.portReconciler.DiscoverPorts(object)
+			c.linkReconciler.DiscoverLinks(object)
 			// c.discoverAtachedHosts(object)
 			log.Infof("%d: Finished work on %s", workerID, object.ID)
 

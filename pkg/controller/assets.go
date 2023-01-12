@@ -45,7 +45,7 @@ func (c *Controller) AddSwitch(ctx context.Context, req *api.AddSwitchRequest) e
 	if c.getState() != Monitoring {
 		return errors.NewUnavailable(controllerNotReady)
 	}
-	al := aspects(req.ChassisConfigID, req.PipelineConfigID, req.GNMIEndpoint, req.P4Endpoint)
+	al := aspects(req.ManagementInfo)
 	if err := c.createEntity(ctx, req.ID, topo.SwitchKind, al, labels(req.PodID, req.RackID)); err != nil {
 		return err
 	}
@@ -65,7 +65,7 @@ func (c *Controller) AddServerIPU(ctx context.Context, req *api.AddServerIPURequ
 	}
 
 	ipuID := fmt.Sprintf("%s-IPU", req.ID)
-	al := aspects(req.ChassisConfigID, req.PipelineConfigID, req.GNMIEndpoint, req.P4Endpoint)
+	al := aspects(req.ManagementInfo)
 	if err := c.createEntity(ctx, ipuID, topo.IPUKind, al, labels(req.PodID, req.RackID)); err != nil {
 		return err
 	}
@@ -73,15 +73,35 @@ func (c *Controller) AddServerIPU(ctx context.Context, req *api.AddServerIPURequ
 }
 
 // Produces a set of aspects for Stratum switch/IPU entity
-func aspects(chassisConfigID string, pipelineConfigID string, gnmiEndpoint string, p4Endpoint string) []proto.Message {
-	return []proto.Message{
-		&provisioner.DeviceConfig{
-			ChassisConfigID:  provisioner.ConfigID(chassisConfigID),
-			PipelineConfigID: provisioner.ConfigID(pipelineConfigID),
+func aspects(info *api.ManagementInfo) []proto.Message {
+	list := make([]proto.Message, 0, 1)
+	if len(info.GNMIEndpoint) > 0 || len(info.P4RTEndpoint) > 0 {
+		list = append(list, &topo.StratumAgents{
+			P4RTEndpoint: endpoint(info.P4RTEndpoint),
+			GNMIEndpoint: endpoint(info.GNMIEndpoint),
+			DeviceID:     info.DeviceID,
 		},
-		&topo.GNMIServer{Endpoint: endpoint(gnmiEndpoint)},
-		&topo.P4RuntimeServer{Endpoint: endpoint(p4Endpoint)},
+			// TODO: Remove when these aspects are deprecated
+			&topo.P4RuntimeServer{Endpoint: endpoint(info.P4RTEndpoint), DeviceID: info.DeviceID},
+			&topo.GNMIServer{Endpoint: endpoint(info.GNMIEndpoint)},
+		)
 	}
+
+	if len(info.ChassisConfigID) > 0 || len(info.PipelineConfigID) > 0 {
+		list = append(list, &provisioner.DeviceConfig{
+			ChassisConfigID:  provisioner.ConfigID(info.ChassisConfigID),
+			PipelineConfigID: provisioner.ConfigID(info.PipelineConfigID),
+		})
+	}
+
+	if len(info.LinkAgentEndpoint) > 0 || len(info.HostAgentEndpoint) > 0 || len(info.NatAgentEndpoint) > 0 {
+		list = append(list, &topo.LocalAgents{
+			LinkAgentEndpoint: endpoint(info.LinkAgentEndpoint),
+			HostAgentEndpoint: endpoint(info.HostAgentEndpoint),
+			NATAgentEndpoint:  endpoint(info.NatAgentEndpoint),
+		})
+	}
+	return list
 }
 
 // Produces an endpoint from a host:port string

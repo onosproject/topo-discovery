@@ -39,10 +39,10 @@ func (s *TestSuite) TestAPIBasics(t *testing.T) {
 	_, err = discoClient.AddRack(ctx, &discovery.AddRackRequest{ID: rack, PodID: pod})
 	assert.NoError(t, err)
 
-	addSwitch(t, discoClient, "spine1", 20000)
-	addSwitch(t, discoClient, "spine2", 20001)
-	addSwitch(t, discoClient, "leaf1", 20002)
-	addSwitch(t, discoClient, "leaf2", 20003)
+	addSwitch(t, discoClient, "spine1", 0)
+	addSwitch(t, discoClient, "spine2", 1)
+	addSwitch(t, discoClient, "leaf1", 2)
+	addSwitch(t, discoClient, "leaf2", 3)
 
 	t.Log("Validating seed entities...")
 	stream, err := topoClient.Query(ctx, &topo.QueryRequest{Filters: &topo.Filters{KindFilter: &topo.Filter{
@@ -60,20 +60,31 @@ func (s *TestSuite) TestAPIBasics(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, readTopoStream(stream), 4*2*32) // ports and relations
 
+	time.Sleep(30 * time.Second)
+
+	t.Log("Validating link entities and relations...")
+	stream, err = topoClient.Query(ctx, &topo.QueryRequest{Filters: &topo.Filters{KindFilter: &topo.Filter{
+		Filter: &topo.Filter_In{In: &topo.InFilter{Values: []string{topo.LinkKind, topo.OriginatesKind, topo.TerminatesKind}}},
+	}}})
+	assert.NoError(t, err)
+	assert.Len(t, readTopoStream(stream), 8*2*(1+2)) // links and relations
 }
 
-func addSwitch(t *testing.T, discoClient discovery.DiscoveryServiceClient, name string, port int) {
+func addSwitch(t *testing.T, discoClient discovery.DiscoveryServiceClient, name string, num int) {
 	t.Logf("Adding switch %s...", name)
-	endpoint := fmt.Sprintf("fabric-sim:%d", port)
+	stratumEndpoint := fmt.Sprintf("fabric-sim:%d", 20000+num)
+	linkAgentEndpoint := fmt.Sprintf("link-local-agent-%d.link-local-agent:30000", num)
 	_, err := discoClient.AddSwitch(context.TODO(), &discovery.AddSwitchRequest{
-		ID:               name,
-		PodID:            pod,
-		RackID:           rack,
-		P4Endpoint:       endpoint,
-		GNMIEndpoint:     endpoint,
-		PipelineConfigID: pipelineConfigID,
-		ChassisConfigID:  chassisConfigID,
-	})
+		ID:     name,
+		PodID:  pod,
+		RackID: rack,
+		ManagementInfo: &discovery.ManagementInfo{
+			P4RTEndpoint:      stratumEndpoint,
+			GNMIEndpoint:      stratumEndpoint,
+			PipelineConfigID:  pipelineConfigID,
+			ChassisConfigID:   chassisConfigID,
+			LinkAgentEndpoint: linkAgentEndpoint,
+		}})
 	assert.NoError(t, err)
 }
 

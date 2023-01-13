@@ -93,6 +93,7 @@ func (r *PortReconciler) getPorts(object *topo.Object) (map[topo.ID]*topo.Object
 
 func (r *PortReconciler) createPort(object *topo.Object, portID topo.ID, port *topo.Port) {
 	portObject, err := topo.NewEntity(portID, topo.PortKind).WithAspects(port)
+	portObject.Labels = object.Labels // Copy the parent device labels
 	if err != nil {
 		log.Warnf("Unable to allocate port entity %s: %+v", portID, err)
 		return

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022-present Intel Corporation
+// SPDX-FileCopyrightText: 2023-present Intel Corporation
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -6,6 +6,7 @@ package controller
 
 import (
 	"context"
+	"github.com/onosproject/onos-api/go/onos/topo"
 	"github.com/onosproject/topo-discovery/pkg/southbound"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -23,8 +24,8 @@ func TestAddToPending(t *testing.T) {
 
 func TestRegisterReport(t *testing.T) {
 	r := NewLinkReconciler(context.TODO(), nil)
-	links := r.registerReport(&southbound.LinkReport{
-		ID:      "ta",
+	ta := topo.NewEntity(topo.ID("ta"), topo.SwitchKind)
+	links := r.registerReport(ta, &southbound.LinkReport{
 		AgentID: "a",
 		Links: map[uint32]*southbound.Link{
 			1: {IngressDevice: "a", IngressPort: 1, EgressDevice: "b", EgressPort: 10},
@@ -38,8 +39,8 @@ func TestRegisterReport(t *testing.T) {
 	assert.Len(t, r.pendingLinks["c"], 1)
 	assert.Len(t, r.agentDevices, 1)
 
-	links = r.registerReport(&southbound.LinkReport{
-		ID:      "tb",
+	tb := topo.NewEntity(topo.ID("tb"), topo.SwitchKind)
+	links = r.registerReport(tb, &southbound.LinkReport{
 		AgentID: "b",
 		Links: map[uint32]*southbound.Link{
 			10: {IngressDevice: "b", IngressPort: 10, EgressDevice: "a", EgressPort: 1},
@@ -52,8 +53,8 @@ func TestRegisterReport(t *testing.T) {
 	assert.Len(t, r.pendingLinks["c"], 2)
 	assert.Len(t, r.agentDevices, 2)
 
-	links = r.registerReport(&southbound.LinkReport{
-		ID:      "tc",
+	tc := topo.NewEntity(topo.ID("tc"), topo.SwitchKind)
+	links = r.registerReport(tc, &southbound.LinkReport{
 		AgentID: "c",
 		Links: map[uint32]*southbound.Link{
 			5: {IngressDevice: "c", IngressPort: 5, EgressDevice: "a", EgressPort: 3},

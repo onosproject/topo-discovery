@@ -9,7 +9,9 @@ import (
 	"fmt"
 	"github.com/onosproject/onos-api/go/onos/topo"
 	"github.com/onosproject/topo-discovery/pkg/southbound"
+	"io"
 	"sync"
+	"time"
 )
 
 // TODO: Presently, the link discovery is implemented using a periodic poll via gNMI Get.
@@ -21,8 +23,8 @@ type LinkReconciler struct {
 	ctx        context.Context
 	lock       sync.RWMutex
 
-	// Map of agent-id to topo ID required to resolve link reports to a device
-	agentDevices map[string]topo.ID
+	// Map of agent-id to topo object required to resolve link reports to a device
+	agentDevices map[string]*topo.Object
 
 	// Map of agent-id to a list of links that reference that agent ID, but cannot be
 	// resolved yet because that agent-id has not yet been registered
@@ -34,7 +36,7 @@ func NewLinkReconciler(ctx context.Context, topoClient topo.TopoClient) *LinkRec
 	return &LinkReconciler{
 		topoClient:   topoClient,
 		ctx:          ctx,
-		agentDevices: make(map[string]topo.ID),
+		agentDevices: make(map[string]*topo.Object),
 		pendingLinks: make(map[string][]*southbound.Link),
 	}
 }
@@ -49,19 +51,21 @@ func (r *LinkReconciler) DiscoverLinks(object *topo.Object) {
 	}
 
 	// Register the report and agent ID
-	linksToProcess := r.registerReport(linkReport)
-
+	linksToProcess := r.registerReport(object, linkReport)
 	for _, link := range linksToProcess {
 		r.reconcileLink(link)
 	}
+
+	r.updateDownedLinks(object, linkReport)
 }
 
+// Reconciles the specified southbound link against its topology entity counterpart
 func (r *LinkReconciler) reconcileLink(link *southbound.Link) {
 	// Start by resolving the ingress and egress devices
-	ingressID, egressID := r.resolveDevices(link)
+	ingressDevice, egressDevice := r.resolveDevices(link)
 
-	egressPortID := topo.ID(fmt.Sprintf("%s/%d", egressID, link.EgressPort))
-	ingressPortID := topo.ID(fmt.Sprintf("%s/%d", ingressID, link.IngressPort))
+	egressPortID := topo.ID(fmt.Sprintf("%s/%d", egressDevice.ID, link.EgressPort))
+	ingressPortID := topo.ID(fmt.Sprintf("%s/%d", ingressDevice.ID, link.IngressPort))
 	linkID := topo.ID(fmt.Sprintf("%s-%s", egressPortID, ingressPortID))
 
 	log.Infof("Reconciling link %s", linkID)
@@ -71,7 +75,7 @@ func (r *LinkReconciler) reconcileLink(link *southbound.Link) {
 	gr, err := r.topoClient.Get(r.ctx, &topo.GetRequest{ID: linkID})
 	if err != nil {
 		// If it is not there, create it and its originates/terminates relations
-		r.createLink(linkID, egressPortID, ingressPortID, link)
+		r.createLink(linkID, egressPortID, ingressPortID, link, egressDevice.Labels)
 		return
 	}
 
@@ -80,12 +84,12 @@ func (r *LinkReconciler) reconcileLink(link *southbound.Link) {
 }
 
 // Register the given report, the agent ID and return....
-func (r *LinkReconciler) registerReport(report *southbound.LinkReport) []*southbound.Link {
+func (r *LinkReconciler) registerReport(object *topo.Object, report *southbound.LinkReport) []*southbound.Link {
 	r.lock.Lock()
 	defer r.lock.Unlock()
 
 	// (Re)create the agent ID to device entity ID binding
-	r.agentDevices[report.AgentID] = report.ID
+	r.agentDevices[report.AgentID] = object
 
 	// See if all links in the report can be processed, if not, register them in the pending links
 	// Otherwise, add them to the links to be processed now
@@ -109,6 +113,7 @@ func (r *LinkReconciler) registerReport(report *southbound.LinkReport) []*southb
 	return links
 }
 
+// Adds the given southbound link to the list of pending links for its egress device
 func (r *LinkReconciler) addToPendingLinks(link *southbound.Link) {
 	pending, ok := r.pendingLinks[link.EgressDevice]
 	if !ok {
@@ -119,33 +124,136 @@ func (r *LinkReconciler) addToPendingLinks(link *southbound.Link) {
 	r.pendingLinks[link.EgressDevice] = pending
 }
 
-func (r *LinkReconciler) resolveDevices(link *southbound.Link) (topo.ID, topo.ID) {
+// Resolves link ingress/egress agent IDs into corresponding device topo entities
+func (r *LinkReconciler) resolveDevices(link *southbound.Link) (*topo.Object, *topo.Object) {
 	r.lock.RLock()
 	defer r.lock.RUnlock()
 	return r.agentDevices[link.IngressDevice], r.agentDevices[link.EgressDevice]
 }
 
-func (r *LinkReconciler) createLink(linkID topo.ID, egressPortID topo.ID, ingressPortID topo.ID, link *southbound.Link) {
-	object := topo.NewEntity(linkID, topo.LinkKind)
-	if _, err := r.topoClient.Create(r.ctx, &topo.CreateRequest{Object: object}); err != nil {
+// Creates link topo object and its originates/terminates relations
+func (r *LinkReconciler) createLink(linkID topo.ID, egressPortID topo.ID, ingressPortID topo.ID,
+	link *southbound.Link, labels map[string]string) {
+	linkAspect := &topo.Link{Status: "UP", LastChange: link.CreateTime}
+	object, err := topo.NewEntity(linkID, topo.LinkKind).WithAspects(linkAspect)
+	if err != nil {
+		log.Warnf("Unable to allocate link %s: %+v", linkID, err)
+		return
+	}
+	object.Labels = labels
+	if _, err = r.topoClient.Create(r.ctx, &topo.CreateRequest{Object: object}); err != nil {
 		log.Warnf("Unable to create link %s: %+v", linkID, err)
 		return
 	}
 
 	originates := topo.NewRelation(egressPortID, linkID, topo.OriginatesKind)
-	if _, err := r.topoClient.Create(r.ctx, &topo.CreateRequest{Object: originates}); err != nil {
+	if _, err = r.topoClient.Create(r.ctx, &topo.CreateRequest{Object: originates}); err != nil {
 		log.Warnf("Unable to create originates relation for link %s: %+v", linkID, err)
 		return
 	}
 
 	terminates := topo.NewRelation(ingressPortID, linkID, topo.TerminatesKind)
-	if _, err := r.topoClient.Create(r.ctx, &topo.CreateRequest{Object: terminates}); err != nil {
+	if _, err = r.topoClient.Create(r.ctx, &topo.CreateRequest{Object: terminates}); err != nil {
 		log.Warnf("Unable to create terminates relation for link %s: %+v", linkID, err)
 		return
 	}
 	log.Infof("Created link %s", linkID)
 }
 
-func (r *LinkReconciler) updateLinkIfNeeded(object *topo.Object, link *southbound.Link) {
-	// TODO: implement this
+// Updates link if the link aspect update time differes from the southbound link create time
+func (r *LinkReconciler) updateLinkIfNeeded(linkObject *topo.Object, link *southbound.Link) {
+	linkAspect := &topo.Link{}
+	if err := linkObject.GetAspect(linkAspect); err != nil || linkAspect.LastChange < link.CreateTime {
+		linkAspect.Status = "UP"
+		linkAspect.LastChange = link.CreateTime
+
+		if err = linkObject.SetAspect(linkAspect); err != nil {
+			log.Warnf("Unable to set link %s aspect %+v: %+v", linkObject.ID, linkAspect, err)
+			return
+		}
+
+		if _, err = r.topoClient.Update(r.ctx, &topo.UpdateRequest{Object: linkObject}); err != nil {
+			log.Warnf("Unable to update link %s with %+v: %+v", linkObject.ID, linkAspect, err)
+			return
+		}
+		log.Infof("Updated status of link %s: %+v", linkObject.ID, linkAspect)
+	}
+}
+
+// Updates any topology link entities to down state if they don't have a counterpart in the southbound links report
+func (r *LinkReconciler) updateDownedLinks(object *topo.Object, report *southbound.LinkReport) {
+	// TODO: implement me; may require enhanced relations query for efficient implementation
+	// Get the device ports first
+	portsFilter := &topo.RelationFilter{SrcId: string(object.ID), RelationKind: topo.HasKind, TargetKind: topo.PortKind}
+	stream, err := r.topoClient.Query(r.ctx, &topo.QueryRequest{Filters: &topo.Filters{RelationFilter: portsFilter}})
+	if err != nil {
+		log.Warnf("Unable to query device ports for %s: %+v", object.ID, err)
+	}
+
+	for {
+		resp, err := stream.Recv()
+		if err != nil {
+			if err != io.EOF {
+				log.Warnf("Unable to read device ports for %s: %+v", object.ID, err)
+			}
+			return
+		}
+
+		// If the returned object isn't a source of any relations, ignore it
+		if len(resp.Object.GetEntity().SrcRelationIDs) == 0 {
+			continue
+		}
+
+		// If the port is in the southbound link report link map, it means no pruning is needed
+		portAspect := &topo.Port{}
+		if err = resp.Object.GetAspect(portAspect); err != nil {
+			log.Warnf("Unable to get port aspect from port entity %s: %+v", resp.Object.ID, err)
+			continue
+		}
+		if _, ok := report.Links[portAspect.Number]; ok {
+			// Port has an ingress link, no need to prune
+			continue
+		}
+
+		// Otherwise, get the link that terminates at this port and mark it as DOWN
+		r.updateDownedIngressLink(resp.Object)
+	}
+}
+
+func (r *LinkReconciler) updateDownedIngressLink(portObject *topo.Object) {
+	linkFilter := &topo.RelationFilter{SrcId: string(portObject.ID), RelationKind: topo.TerminatesKind, TargetKind: topo.LinkKind}
+	stream, err := r.topoClient.Query(r.ctx, &topo.QueryRequest{Filters: &topo.Filters{RelationFilter: linkFilter}})
+	if err != nil {
+		log.Warnf("Unable to query ingress link for port %s: %+v", portObject.ID, err)
+	}
+
+	// Assume at most one response
+	resp, err := stream.Recv()
+	if err != nil {
+		if err != io.EOF {
+			log.Warnf("Unable to read ingress link for port %s: %+v", portObject.ID, err)
+		}
+		return
+	}
+
+	linkAspect := &topo.Link{}
+	if err = resp.Object.GetAspect(linkAspect); err != nil {
+		log.Warnf("Unable to get ingress link aspect for %s: %v", resp.Object.ID, err)
+		return
+	}
+
+	if linkAspect.Status != "DOWN" {
+		// If the link is not already marked as down, mark it as such
+		linkAspect = &topo.Link{Status: "DOWN", LastChange: uint64(time.Now().UnixNano())}
+		if err = resp.Object.SetAspect(linkAspect); err != nil {
+			log.Warnf("Unable to set ingress link aspect for %s: %v", resp.Object.ID, err)
+			return
+		}
+
+		if _, err = r.topoClient.Update(r.ctx, &topo.UpdateRequest{Object: resp.Object}); err != nil {
+			log.Warnf("Unable to update ingress link aspect for %s: %v", resp.Object.ID, err)
+			return
+		}
+		log.Infof("Updated status of link %s: %+v", resp.Object.ID, linkAspect)
+	}
 }

@@ -839,8 +839,8 @@ github.com/onosproject/fabric-sim v0.1.20 h1:rUmvlVHKPmodf3pvzK52+KThQq58LGrApfO
 github.com/onosproject/fabric-sim v0.1.20/go.mod h1:FPz0E++9SZ8Yc5XQkUJcvpihgRXjrUCwrNYvj1OfXq8=
 github.com/onosproject/helmit v0.6.20 h1:C0GwoPAgo5+RRxGcPKDDSiNqqDg52o4nDN6Bqon4dRQ=
 github.com/onosproject/helmit v0.6.20/go.mod h1:Q6g2fjZkoG9heTCp3R7VBtTka5jMAeKNreG9rXGCc/A=
-github.com/onosproject/onos-api/go v0.10.20 h1:YPBghtM7g2ZJWHjm4Zmt29iq2g3efO1hq5hNRA7ANYc=
-github.com/onosproject/onos-api/go v0.10.20/go.mod h1:R882+8UcxQBLpCopnnbBnemXtJ77UXnL2I1y5yHbq10=
+github.com/onosproject/onos-api/go v0.10.21 h1:rMxmH5UxOodgplTQkCO9+Iq3ZkgexBV6/Kel0c6Mcbg=
+github.com/onosproject/onos-api/go v0.10.21/go.mod h1:R882+8UcxQBLpCopnnbBnemXtJ77UXnL2I1y5yHbq10=
 github.com/onosproject/onos-lib-go v0.8.1/go.mod h1:1klcUPfLoXPVu4fzM/sYi1V3Pggm2NRbY2fTzG2W1HY=
 github.com/onosproject/onos-lib-go v0.10.6 h1:/WCaZddI3SywC0StjOficcnaiQ49eOs+JIRbB/H4A3U=
 github.com/onosproject/onos-lib-go v0.10.6/go.mod h1:BW7ofxESngKlsUw6YmO/hbUrbmL3sNxdXkzZkDev/tE=

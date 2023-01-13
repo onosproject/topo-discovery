@@ -19,18 +19,18 @@ type Link struct {
 	IngressPort   uint32
 	EgressDevice  string
 	EgressPort    uint32
+	CreateTime    uint64
 }
 
 // LinkReport provides results of a link query against the link local agent
 type LinkReport struct {
-	ID      topo.ID
 	AgentID string
 	Links   map[uint32]*Link
 }
 
 // GetIngressLinks returns a map of link descriptors obtained via gNMI get request on state/link[port=...] query
 func GetIngressLinks(object *topo.Object) (*LinkReport, error) {
-	report := &LinkReport{ID: object.ID, Links: make(map[uint32]*Link)}
+	report := &LinkReport{Links: make(map[uint32]*Link)}
 	localAgents := &topo.LocalAgents{}
 	if err := object.GetAspect(localAgents); err != nil {
 		log.Warnf("Object %s doesn't have onos.topo.LocalAgents aspect", object.ID)
@@ -75,6 +75,8 @@ func GetIngressLinks(object *topo.Object) (*LinkReport, error) {
 			link.EgressPort = uint32(update.Val.GetIntVal())
 		case "egress-device":
 			link.EgressDevice = update.Val.GetStringVal()
+		case "create-time":
+			link.CreateTime = update.Val.GetUintVal()
 		}
 	}
 	return report, nil

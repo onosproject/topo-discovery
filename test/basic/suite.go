@@ -29,37 +29,36 @@ type TestSuite struct {
 // SetupTestSuite sets up the fabric simulator basic test suite
 func (s *TestSuite) SetupTestSuite(c *input.Context) error {
 	registry := c.GetArg("registry").String("")
-	err := installChart("fabric-sim", registry, false)
+
+	// Start fabric sim and load the test topology
+	err := installChart("fabric-sim", registry, true)
 	if err != nil {
 		return err
 	}
-
-	err = installChart("onos-topo", registry, false)
-	if err != nil {
-		return err
-	}
-
-	err = installChart("device-provisioner", registry, true)
-	if err != nil {
-		return err
-	}
-
-	err = installChart("topo-discovery", registry, true)
-	if err != nil {
-		return err
-	}
-
 	fsimConn, err := libtest.CreateConnection("fabric-sim:5150", true)
 	if err != nil {
 		return err
 	}
-
 	err = fsimtopo.LoadTopology(fsimConn, "./test/basic/topo.yaml")
 	if err != nil {
 		return err
 	}
 
+	// Start onos-topo, device provisioner and create pipelne configuration to be deployed
+	err = installChart("onos-topo", registry, false)
+	if err != nil {
+		return err
+	}
+	err = installChart("device-provisioner", registry, true)
+	if err != nil {
+		return err
+	}
 	if err = createPipelineConfig(); err != nil {
+		return err
+	}
+
+	err = installChart("topo-discovery", registry, true)
+	if err != nil {
 		return err
 	}
 

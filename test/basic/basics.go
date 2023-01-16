@@ -60,7 +60,7 @@ func (s *TestSuite) TestAPIBasics(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, readTopoStream(stream), 4*2*32) // ports and relations
 
-	time.Sleep(45 * time.Second)
+	time.Sleep(15 * time.Second)
 
 	t.Log("Validating link entities and relations...")
 	stream, err = topoClient.Query(ctx, &topo.QueryRequest{Filters: &topo.Filters{KindFilter: &topo.Filter{

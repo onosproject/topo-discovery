@@ -30,12 +30,14 @@ type PortDiscovery interface {
 	GetPorts(object *topo.Object, listener PortStatusListener) (map[string]*topo.Port, error)
 }
 
+// Implementation of PortDiscovery using gNMI against Stratum device agent
 type gNMIPortDiscovery struct {
 	PortDiscovery
 	lock           sync.RWMutex
 	deviceContexts map[topo.ID]*deviceContext
 }
 
+// Stratum device gNMI port discovery context
 type deviceContext struct {
 	object    *topo.Object
 	device    *stratum.GNMI
@@ -52,10 +54,9 @@ func NewGNMIPortDiscovery() PortDiscovery {
 
 // GetPorts returns a map of port descriptors obtained via gNMI get request on /interfaces/interface[name=...] query
 func (pd *gNMIPortDiscovery) GetPorts(object *topo.Object, listener PortStatusListener) (map[string]*topo.Port, error) {
-	// Get the gNMI device context; get existing one or create ont
+	// Get the gNMI device context; get existing one or create one
 	dc, err := pd.getDeviceContext(object, listener)
 	if err != nil {
-		log.Warnf("Unable to connect to Stratum device gNMI %s: %+v", object.ID, err)
 		return nil, err
 	}
 
@@ -114,12 +115,15 @@ func (pd *gNMIPortDiscovery) getDeviceContext(object *topo.Object, listener Port
 		pd.deviceContexts[object.ID] = dc
 	}
 
-	// Connect to the device using gNMI
-	var err error
-	dc.device, err = stratum.NewStratumGNMI(object, true)
-	if err != nil {
-		log.Warnf("Unable to connect to Stratum device gNMI %s: %+v", object.ID, err)
-		return nil, err
+	// If we haven't established a device context yet, do so.
+	if dc.device == nil {
+		// Connect to the device using gNMI
+		var err error
+		dc.device, err = stratum.NewStratumGNMI(object, true)
+		if err != nil {
+			log.Warnf("Unable to connect to Stratum device gNMI %s: %+v", object.ID, err)
+			return nil, err
+		}
 	}
 	return dc, nil
 }
@@ -133,7 +137,7 @@ func getPort(ports map[string]*topo.Port, id string) *topo.Port {
 	return port
 }
 
-// Starts the port monitor if not already started and if the given port change stamp is newer
+// Starts the port monitor if not already started or if restart is requested
 func (dc *deviceContext) startMonitor(restart bool) {
 	if dc.ctxCancel == nil || restart {
 		dc.stopMonitor()

@@ -14,14 +14,18 @@ import (
 	"time"
 )
 
-// TODO: Presently, the link discovery is implemented using a periodic poll via gNMI Get.
-// It should be augmented with gNMI subscribe since link agent supports it.
+const (
+	statusUp   = "UP"
+	statusDown = "DOWN"
+)
 
 // LinkReconciler provides state and context required for link discovery and reconciliation
 type LinkReconciler struct {
-	topoClient topo.TopoClient
-	ctx        context.Context
-	lock       sync.RWMutex
+	southbound.IngressLinkListener
+	linkDiscovery southbound.IngressLinkDiscovery
+	topoClient    topo.TopoClient
+	ctx           context.Context
+	lock          sync.RWMutex
 
 	// Map of agent-id to topo object required to resolve link reports to a device
 	agentDevices map[string]*topo.Object
@@ -34,35 +38,54 @@ type LinkReconciler struct {
 // NewLinkReconciler creates a new link reconciler context
 func NewLinkReconciler(ctx context.Context, topoClient topo.TopoClient) *LinkReconciler {
 	return &LinkReconciler{
-		topoClient:   topoClient,
-		ctx:          ctx,
-		agentDevices: make(map[string]*topo.Object),
-		pendingLinks: make(map[string][]*southbound.Link),
+		topoClient:    topoClient,
+		ctx:           ctx,
+		agentDevices:  make(map[string]*topo.Object),
+		pendingLinks:  make(map[string][]*southbound.Link),
+		linkDiscovery: southbound.NewGNMILinkDiscovery(),
 	}
 }
 
 // DiscoverLinks discovers links and reconciles their topology entity counterparts
 func (r *LinkReconciler) DiscoverLinks(object *topo.Object) {
 	// Connect to the link agent gNMI server and get its agent ID and a map of ingress links
-	linkReport, err := southbound.GetIngressLinks(object)
+	linkReport, err := r.linkDiscovery.GetIngressLinks(object, r)
 	if err != nil {
-		log.Warnf("Unable to get links from device link agent %s", object.ID)
+		log.Warnf("Unable to get links from device link agent %s: %+v", object.ID, err)
 		return
 	}
 
 	// Register the report and agent ID
 	linksToProcess := r.registerReport(object, linkReport)
 	for _, link := range linksToProcess {
-		r.reconcileLink(link)
+		r.reconcileLink(link, statusUp)
 	}
-
 	r.updateDownedLinks(object, linkReport)
 }
 
+// LinkAdded handles link addition event
+func (r *LinkReconciler) LinkAdded(link *southbound.Link) {
+	log.Infof("New link added: %+v", link)
+	r.reconcileLink(link, statusUp)
+}
+
+// LinkDeleted handles link deletion event
+func (r *LinkReconciler) LinkDeleted(link *southbound.Link) {
+	log.Infof("Link deleted: %+v", link)
+	r.reconcileLink(link, statusDown)
+}
+
 // Reconciles the specified southbound link against its topology entity counterpart
-func (r *LinkReconciler) reconcileLink(link *southbound.Link) {
+func (r *LinkReconciler) reconcileLink(link *southbound.Link, status string) {
 	// Start by resolving the ingress and egress devices
 	ingressDevice, egressDevice := r.resolveDevices(link)
+	if egressDevice == nil {
+		r.lock.Lock()
+		log.Infof("Agent devices: %+v", r.agentDevices)
+		r.addToPendingLinks(link)
+		r.lock.Unlock()
+		return
+	}
 
 	egressPortID := topo.ID(fmt.Sprintf("%s/%d", egressDevice.ID, link.EgressPort))
 	ingressPortID := topo.ID(fmt.Sprintf("%s/%d", ingressDevice.ID, link.IngressPort))
@@ -80,7 +103,7 @@ func (r *LinkReconciler) reconcileLink(link *southbound.Link) {
 	}
 
 	// Otherwise, if it needs an update, update it
-	r.updateLinkIfNeeded(gr.Object, link)
+	r.updateLinkIfNeeded(gr.Object, link, status)
 }
 
 // Register the given report, the agent ID and return....
@@ -115,6 +138,7 @@ func (r *LinkReconciler) registerReport(object *topo.Object, report *southbound.
 
 // Adds the given southbound link to the list of pending links for its egress device
 func (r *LinkReconciler) addToPendingLinks(link *southbound.Link) {
+	log.Infof("Adding pending link: %+v", link)
 	pending, ok := r.pendingLinks[link.EgressDevice]
 	if !ok {
 		pending = []*southbound.Link{link}
@@ -161,10 +185,10 @@ func (r *LinkReconciler) createLink(linkID topo.ID, egressPortID topo.ID, ingres
 }
 
 // Updates link if the link aspect update time differes from the southbound link create time
-func (r *LinkReconciler) updateLinkIfNeeded(linkObject *topo.Object, link *southbound.Link) {
+func (r *LinkReconciler) updateLinkIfNeeded(linkObject *topo.Object, link *southbound.Link, status string) {
 	linkAspect := &topo.Link{}
 	if err := linkObject.GetAspect(linkAspect); err != nil || linkAspect.LastChange < link.CreateTime {
-		linkAspect.Status = "UP"
+		linkAspect.Status = status
 		linkAspect.LastChange = link.CreateTime
 
 		if err = linkObject.SetAspect(linkAspect); err != nil {

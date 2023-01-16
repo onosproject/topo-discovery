@@ -65,13 +65,11 @@ func (r *LinkReconciler) DiscoverLinks(object *topo.Object) {
 
 // LinkAdded handles link addition event
 func (r *LinkReconciler) LinkAdded(link *southbound.Link) {
-	log.Infof("New link added: %+v", link)
 	r.reconcileLink(link, statusUp)
 }
 
 // LinkDeleted handles link deletion event
 func (r *LinkReconciler) LinkDeleted(link *southbound.Link) {
-	log.Infof("Link deleted: %+v", link)
 	r.reconcileLink(link, statusDown)
 }
 
@@ -80,8 +78,8 @@ func (r *LinkReconciler) reconcileLink(link *southbound.Link, status string) {
 	// Start by resolving the ingress and egress devices
 	ingressDevice, egressDevice := r.resolveDevices(link)
 	if egressDevice == nil {
+		// If the egress device is now yet resolved, add the link to its pending links
 		r.lock.Lock()
-		log.Infof("Agent devices: %+v", r.agentDevices)
 		r.addToPendingLinks(link)
 		r.lock.Unlock()
 		return
@@ -138,7 +136,6 @@ func (r *LinkReconciler) registerReport(object *topo.Object, report *southbound.
 
 // Adds the given southbound link to the list of pending links for its egress device
 func (r *LinkReconciler) addToPendingLinks(link *southbound.Link) {
-	log.Infof("Adding pending link: %+v", link)
 	pending, ok := r.pendingLinks[link.EgressDevice]
 	if !ok {
 		pending = []*southbound.Link{link}

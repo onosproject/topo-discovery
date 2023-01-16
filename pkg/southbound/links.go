@@ -88,7 +88,7 @@ func (ld *gNMILinkDiscovery) GetIngressLinks(object *topo.Object, listener Ingre
 		return nil, errors.NewInvalid("no link data received")
 	}
 
-	log.Infof("%s: Got links: %+v", object.ID, resp.Notification)
+	log.Debugf("%s: Got links: %+v", object.ID, resp.Notification)
 	for _, notification := range resp.Notification {
 		ac.processLinkNotification(notification, report.Links)
 	}
@@ -236,7 +236,7 @@ func (ac *agentContext) monitorLinkChanges() {
 			log.Infof("Link monitor stopped")
 			return
 		}
-		log.Infof("Got link update %+v", resp.GetUpdate())
+		log.Debugf("Got link update %+v", resp.GetUpdate())
 		ac.processLinkResponse(resp)
 	}
 }

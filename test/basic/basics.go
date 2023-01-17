@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/onosproject/onos-api/go/onos/discovery"
+	fsimapi "github.com/onosproject/onos-api/go/onos/fabricsim"
 	"github.com/onosproject/onos-api/go/onos/topo"
 	libtest "github.com/onosproject/onos-lib-go/pkg/test"
 	"github.com/stretchr/testify/assert"
@@ -51,6 +52,7 @@ func (s *TestSuite) TestAPIBasics(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, readTopoStream(stream), 11) // pod, rack, 4 switches, 5 relations
 
+	// Allow just a short time for the discovery to react to the new seed entities and discover their ports
 	time.Sleep(5 * time.Second)
 
 	t.Log("Validating port entities and relations...")
@@ -60,7 +62,9 @@ func (s *TestSuite) TestAPIBasics(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, readTopoStream(stream), 4*2*32) // ports and relations
 
-	time.Sleep(30 * time.Second)
+	// Allow enough time for the link agent to pick-up on the new devices and their ports and consequently
+	// discover the links involving those ports. Just a tad more than a full-sweep discovery cycle should suffice.
+	time.Sleep(35 * time.Second)
 
 	t.Log("Validating link entities and relations...")
 	stream, err = topoClient.Query(ctx, &topo.QueryRequest{Filters: &topo.Filters{KindFilter: &topo.Filter{
@@ -68,6 +72,55 @@ func (s *TestSuite) TestAPIBasics(t *testing.T) {
 	}}})
 	assert.NoError(t, err)
 	assert.Len(t, readTopoStream(stream), 8*2*(1+2)) // links and relations
+
+	// Disable the spine1/1 port...
+	fsimClient := fsimapi.NewDeviceServiceClient(s.fsimConn)
+	t.Log("Disabling port spine1/1...")
+	_, err = fsimClient.DisablePort(ctx, &fsimapi.DisablePortRequest{ID: fsimapi.PortID("spine1/1")})
+	assert.NoError(t, err)
+
+	// Allow just a short time for the port status change to be detected and reflected in the topo entities
+	time.Sleep(5 * time.Second)
+
+	// Then validate that the port entity was marked down
+	t.Log("Validating disabled port and link...")
+	resp, err := topoClient.Get(ctx, &topo.GetRequest{ID: "spine1/201"})
+	assert.NoError(t, err)
+	port := &topo.Port{}
+	err = resp.Object.GetAspect(port)
+	assert.NoError(t, err)
+	assert.Equal(t, "DOWN", port.Status)
+
+	// ... and that the link entity was marked down
+	resp, err = topoClient.Get(ctx, &topo.GetRequest{ID: "leaf1/201-spine1/201"})
+	assert.NoError(t, err)
+	link := &topo.Link{}
+	err = resp.Object.GetAspect(link)
+	assert.NoError(t, err)
+	assert.Equal(t, "DOWN", link.Status)
+
+	// Re-enable the spine1/1 port...
+	t.Log("Re-enabling port spine1/1...")
+	_, err = fsimClient.EnablePort(ctx, &fsimapi.EnablePortRequest{ID: fsimapi.PortID("spine1/1")})
+	assert.NoError(t, err)
+
+	// Again, allow just a short time for the port status change to be detected and reflected in the topo entities
+	time.Sleep(5 * time.Second)
+
+	// Then validate that the port entity was marked down
+	t.Log("Validating re-enabled port and link...")
+	resp, err = topoClient.Get(ctx, &topo.GetRequest{ID: "spine1/201"})
+	assert.NoError(t, err)
+	err = resp.Object.GetAspect(port)
+	assert.NoError(t, err)
+	assert.Equal(t, "UP", port.Status)
+
+	// ... and that the link entity was marked down
+	resp, err = topoClient.Get(ctx, &topo.GetRequest{ID: "leaf1/201-spine1/201"})
+	assert.NoError(t, err)
+	err = resp.Object.GetAspect(link)
+	assert.NoError(t, err)
+	assert.Equal(t, "UP", link.Status)
 }
 
 func addSwitch(t *testing.T, discoClient discovery.DiscoveryServiceClient, name string, num int) {

@@ -14,6 +14,7 @@ import (
 	"github.com/onosproject/onos-api/go/onos/provisioner"
 	libtest "github.com/onosproject/onos-lib-go/pkg/test"
 	"github.com/onosproject/onos-test/pkg/onostest"
+	"google.golang.org/grpc"
 	"os"
 )
 
@@ -24,6 +25,7 @@ type testSuite struct {
 // TestSuite is the basic test suite
 type TestSuite struct {
 	testSuite
+	fsimConn *grpc.ClientConn
 }
 
 // SetupTestSuite sets up the fabric simulator basic test suite
@@ -35,11 +37,11 @@ func (s *TestSuite) SetupTestSuite(c *input.Context) error {
 	if err != nil {
 		return err
 	}
-	fsimConn, err := libtest.CreateConnection("fabric-sim:5150", true)
+	s.fsimConn, err = libtest.CreateConnection("fabric-sim:5150", true)
 	if err != nil {
 		return err
 	}
-	err = fsimtopo.LoadTopology(fsimConn, "./test/basic/topo.yaml")
+	err = fsimtopo.LoadTopology(s.fsimConn, "./test/basic/topo.yaml")
 	if err != nil {
 		return err
 	}

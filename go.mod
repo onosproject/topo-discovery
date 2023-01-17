@@ -8,7 +8,7 @@ require (
 	github.com/onosproject/helmit v0.6.20
 	github.com/onosproject/onos-api/go v0.10.21
 	github.com/onosproject/onos-lib-go v0.10.6
-	github.com/onosproject/onos-net-lib v0.1.17
+	github.com/onosproject/onos-net-lib v1.1.2
 	github.com/onosproject/onos-test v0.6.6
 	github.com/openconfig/gnmi v0.0.0-20220920173703-480bf53a74d2
 	github.com/spf13/cobra v1.5.0

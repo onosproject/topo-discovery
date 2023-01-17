@@ -12,24 +12,27 @@ import (
 	"io"
 )
 
-// TODO: Presently, the port discovery is implemented using a periodic poll via gNMI Get.
-// It should be augmented with gNMI subscribe since Stratum does appears to support it.
-
 // PortReconciler provides state and context required for port discovery and reconciliation
 type PortReconciler struct {
-	topoClient topo.TopoClient
-	ctx        context.Context
+	southbound.PortStatusListener
+	portDiscovery southbound.PortDiscovery
+	topoClient    topo.TopoClient
+	ctx           context.Context
 }
 
 // NewPortReconciler creates a new port reconciler context
 func NewPortReconciler(ctx context.Context, topoClient topo.TopoClient) *PortReconciler {
-	return &PortReconciler{topoClient: topoClient, ctx: ctx}
+	return &PortReconciler{
+		topoClient:    topoClient,
+		ctx:           ctx,
+		portDiscovery: southbound.NewGNMIPortDiscovery(),
+	}
 }
 
 // DiscoverPorts discovers ports and reconciles their topology entity counterparts
 func (r *PortReconciler) DiscoverPorts(object *topo.Object) {
 	// Connect to the gNMI server and get list of ports
-	devicePorts, err := southbound.GetPorts(object)
+	devicePorts, err := r.portDiscovery.GetPorts(object, r)
 	if err != nil {
 		log.Warnf("Unable to get ports from device %s", object.ID)
 		return
@@ -63,6 +66,20 @@ func (r *PortReconciler) DiscoverPorts(object *topo.Object) {
 			r.deletePort(port.ID)
 		}
 	}
+}
+
+// HandlePortStatus handles port status change
+func (r *PortReconciler) HandlePortStatus(object *topo.Object, port *topo.Port) {
+	log.Infof("Updating port status for %s/%s to %s", object.ID, port.DisplayName, port.Status)
+
+	// Get the port
+	portID := topo.ID(fmt.Sprintf("%s/%d", object.ID, port.Number))
+	resp, err := r.topoClient.Get(r.ctx, &topo.GetRequest{ID: portID})
+	if err != nil {
+		log.Warnf("Unable to get port %s of device %s: %+v", portID, object.ID, err)
+		return
+	}
+	r.updatePortIfNeeded(resp.Object, port)
 }
 
 func (r *PortReconciler) getPorts(object *topo.Object) (map[topo.ID]*topo.Object, error) {

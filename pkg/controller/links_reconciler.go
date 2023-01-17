@@ -70,6 +70,7 @@ func (r *LinkReconciler) LinkAdded(link *southbound.Link) {
 
 // LinkDeleted handles link deletion event
 func (r *LinkReconciler) LinkDeleted(link *southbound.Link) {
+	link.CreateTime = uint64(time.Now().UnixNano())
 	r.reconcileLink(link, statusDown)
 }
 
@@ -181,7 +182,7 @@ func (r *LinkReconciler) createLink(linkID topo.ID, egressPortID topo.ID, ingres
 	log.Infof("Created link %s", linkID)
 }
 
-// Updates link if the link aspect update time differes from the southbound link create time
+// Updates link if the link aspect update time differs from the southbound link create time
 func (r *LinkReconciler) updateLinkIfNeeded(linkObject *topo.Object, link *southbound.Link, status string) {
 	linkAspect := &topo.Link{}
 	if err := linkObject.GetAspect(linkAspect); err != nil || linkAspect.LastChange < link.CreateTime {

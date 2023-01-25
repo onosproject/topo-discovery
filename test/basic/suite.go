@@ -14,6 +14,7 @@ import (
 	"github.com/onosproject/onos-api/go/onos/provisioner"
 	libtest "github.com/onosproject/onos-lib-go/pkg/test"
 	"github.com/onosproject/onos-test/pkg/onostest"
+	"github.com/onosproject/topo-discovery/test/utils/charts"
 	"google.golang.org/grpc"
 	"os"
 )
@@ -31,9 +32,19 @@ type TestSuite struct {
 // SetupTestSuite sets up the fabric simulator basic test suite
 func (s *TestSuite) SetupTestSuite(c *input.Context) error {
 	registry := c.GetArg("registry").String("")
-
+	umbrella := charts.CreateUmbrellaRelease()
+	err := umbrella.
+		Set("global.image.registry", registry).
+		Set("import.device-provisioner.enabled", true).
+		Set("topo-discovery.image.tag", "latest").
+		Set("import.topo-discovery.enabled", true).
+		Set("import.onos-config.enabled", false).
+		Install(true)
+	if err != nil {
+		return err
+	}
 	// Start fabric sim and load the test topology
-	err := installChart("fabric-sim", registry, true)
+	err = installChart("fabric-sim", registry, true)
 	if err != nil {
 		return err
 	}
@@ -46,21 +57,7 @@ func (s *TestSuite) SetupTestSuite(c *input.Context) error {
 		return err
 	}
 
-	// Start onos-topo, device provisioner and create pipelne configuration to be deployed
-	err = installChart("onos-topo", registry, false)
-	if err != nil {
-		return err
-	}
-	err = installChart("device-provisioner", registry, true)
-	if err != nil {
-		return err
-	}
 	if err = createPipelineConfig(); err != nil {
-		return err
-	}
-
-	err = installChart("topo-discovery", registry, true)
-	if err != nil {
 		return err
 	}
 

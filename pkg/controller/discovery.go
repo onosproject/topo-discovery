@@ -52,7 +52,7 @@ func queryFilter(realmLabel string, realmValue string) *topo.Filters {
 			Key:    realmLabel,
 		}},
 		ObjectTypes: []topo.Object_Type{topo.Object_ENTITY},
-		WithAspects: []string{"onos.topo.StratumAgents"},
+		WithAspects: []string{"onos.topo.StratumAgents", "onos.topo.LocalAgents"},
 	}
 }
 

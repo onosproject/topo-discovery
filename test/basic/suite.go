@@ -61,7 +61,7 @@ func (s *TestSuite) SetupTestSuite(c *input.Context) error {
 		return err
 	}
 
-	err = installChart("link-local-agent", registry, false)
+	err = installChart("discovery-agent", registry, false)
 	if err != nil {
 		return err
 	}

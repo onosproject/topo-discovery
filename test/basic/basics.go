@@ -126,7 +126,7 @@ func (s *TestSuite) TestAPIBasics(t *testing.T) {
 func addSwitch(t *testing.T, discoClient discovery.DiscoveryServiceClient, name string, num int) {
 	t.Logf("Adding switch %s...", name)
 	stratumEndpoint := fmt.Sprintf("fabric-sim:%d", 20000+num)
-	linkAgentEndpoint := fmt.Sprintf("link-local-agent-%d.link-local-agent:30000", num)
+	linkAgentEndpoint := fmt.Sprintf("discovery-agent-%d.discovery-agent:30000", num)
 	_, err := discoClient.AddSwitch(context.TODO(), &discovery.AddSwitchRequest{
 		ID:     name,
 		PodID:  pod,

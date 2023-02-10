@@ -35,9 +35,7 @@ func (s *TestSuite) SetupTestSuite(c *input.Context) error {
 	umbrella := charts.CreateUmbrellaRelease()
 	err := umbrella.
 		Set("global.image.registry", registry).
-		Set("import.device-provisioner.enabled", true).
 		Set("topo-discovery.image.tag", "latest").
-		Set("import.topo-discovery.enabled", true).
 		Set("import.onos-config.enabled", false).
 		Install(true)
 	if err != nil {

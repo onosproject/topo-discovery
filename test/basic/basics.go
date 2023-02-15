@@ -158,7 +158,7 @@ func getConnections(t *testing.T) (topo.TopoClient, discovery.DiscoveryServiceCl
 	topoConn, err := libtest.CreateConnection("onos-topo:5150", false)
 	assert.NoError(t, err)
 
-	discoConn, err := libtest.CreateConnection("topo-discovery:5150", false)
+	discoConn, err := libtest.CreateConnection("onos-umbrella-topo-discovery:5150", false)
 	assert.NoError(t, err)
 
 	topoClient := topo.NewTopoClient(topoConn)

@@ -9,6 +9,7 @@ import (
 	"context"
 	"github.com/onosproject/onos-api/go/onos/topo"
 	"github.com/onosproject/onos-lib-go/pkg/logging"
+	"github.com/onosproject/onos-net-lib/pkg/realm"
 	"google.golang.org/grpc"
 	"sync"
 	"time"
@@ -41,9 +42,8 @@ const (
 
 // Controller drives the topology discovery control logic
 type Controller struct {
-	realmLabel string
-	realmValue string
-	state      State
+	realmOptions *realm.Options
+	state        State
 
 	lock sync.RWMutex
 
@@ -61,14 +61,13 @@ type Controller struct {
 }
 
 // NewController creates a new topology discovery controller
-func NewController(realmLabel string, realmValue string, topoAddress string, topoOpts ...grpc.DialOption) *Controller {
+func NewController(realmOptions *realm.Options, topoAddress string, topoOpts ...grpc.DialOption) *Controller {
 	opts := append(topoOpts, grpc.WithBlock())
 	return &Controller{
-		realmLabel:  realmLabel,
-		realmValue:  realmValue,
-		topoAddress: topoAddress,
-		topoOpts:    opts,
-		workingOn:   make(map[topo.ID]*topo.Object),
+		realmOptions: realmOptions,
+		topoAddress:  topoAddress,
+		topoOpts:     opts,
+		workingOn:    make(map[topo.ID]*topo.Object),
 	}
 }
 

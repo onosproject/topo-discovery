@@ -46,7 +46,8 @@ func (c *Controller) AddSwitch(ctx context.Context, req *api.AddSwitchRequest) e
 		return errors.NewUnavailable(controllerNotReady)
 	}
 	al := aspects(req.ManagementInfo)
-	if err := c.createEntity(ctx, req.ID, topo.SwitchKind, al, labels(req.PodID, req.RackID)); err != nil {
+	topoLabels := allLabels(req.PodID, req.RackID, req.ManagementInfo)
+	if err := c.createEntity(ctx, req.ID, topo.SwitchKind, al, topoLabels); err != nil {
 		return err
 	}
 	return c.createRelation(ctx, req.RackID, req.ID, topo.CONTAINS)
@@ -57,7 +58,8 @@ func (c *Controller) AddServerIPU(ctx context.Context, req *api.AddServerIPURequ
 	if c.getState() != Monitoring {
 		return errors.NewUnavailable(controllerNotReady)
 	}
-	if err := c.createEntity(ctx, req.ID, topo.ServerKind, nil, labels(req.PodID, req.RackID)); err != nil {
+	topoLabels := allLabels(req.PodID, req.RackID, req.ManagementInfo)
+	if err := c.createEntity(ctx, req.ID, topo.ServerKind, nil, topoLabels); err != nil {
 		return err
 	}
 	if err := c.createRelation(ctx, req.RackID, req.ID, topo.CONTAINS); err != nil {
@@ -66,7 +68,7 @@ func (c *Controller) AddServerIPU(ctx context.Context, req *api.AddServerIPURequ
 
 	ipuID := fmt.Sprintf("%s-IPU", req.ID)
 	al := aspects(req.ManagementInfo)
-	if err := c.createEntity(ctx, ipuID, topo.IPUKind, al, labels(req.PodID, req.RackID)); err != nil {
+	if err := c.createEntity(ctx, ipuID, topo.IPUKind, al, topoLabels); err != nil {
 		return err
 	}
 	return c.createRelation(ctx, req.ID, ipuID, topo.CONTAINS)
@@ -119,7 +121,25 @@ func endpoint(ep string) *topo.Endpoint {
 
 // Produces a map of pod and rack labels
 func labels(pod string, rack string) map[string]string {
-	return map[string]string{topo.PodKind: pod, topo.RackKind: rack}
+	labels := make(map[string]string, 0)
+	if len(pod) > 0 {
+		labels[topo.PodKind] = pod
+	}
+	if len(rack) > 0 {
+		labels[topo.RackKind] = rack
+	}
+	return labels
+}
+
+func allLabels(pod string, rack string, info *api.ManagementInfo) map[string]string {
+	labels := labels(pod, rack)
+	if len(info.Realm) > 0 {
+		labels["realm"] = info.Realm
+	}
+	if len(info.Role) > 0 {
+		labels["role"] = info.Role
+	}
+	return labels
 }
 
 func (c *Controller) createEntity(ctx context.Context, id string, kindID string, aspects []proto.Message, labels map[string]string) error {
@@ -133,7 +153,10 @@ func (c *Controller) createEntity(ctx context.Context, id string, kindID string,
 }
 
 func (c *Controller) createRelation(ctx context.Context, src string, tgt string, kindID string) error {
-	relation := topo.NewRelation(topo.ID(src), topo.ID(tgt), topo.ID(kindID), nil)
-	_, err := c.topoClient.Create(ctx, &topo.CreateRequest{Object: relation})
-	return err
+	if len(src) > 0 {
+		relation := topo.NewRelation(topo.ID(src), topo.ID(tgt), topo.ID(kindID), nil)
+		_, err := c.topoClient.Create(ctx, &topo.CreateRequest{Object: relation})
+		return err
+	}
+	return nil
 }

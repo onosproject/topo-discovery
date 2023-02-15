@@ -10,6 +10,7 @@ import (
 	"github.com/onosproject/onos-lib-go/pkg/cli"
 	"github.com/onosproject/onos-lib-go/pkg/logging"
 	"github.com/onosproject/onos-lib-go/pkg/northbound"
+	"github.com/onosproject/onos-net-lib/pkg/realm"
 	"github.com/onosproject/topo-discovery/pkg/controller"
 	nb "github.com/onosproject/topo-discovery/pkg/northbound"
 )
@@ -18,8 +19,7 @@ var log = logging.GetLogger("manager")
 
 // Config is a manager configuration
 type Config struct {
-	RealmLabel   string
-	RealmValue   string
+	RealmOptions *realm.Options
 	TopoAddress  string
 	ServiceFlags *cli.ServiceEndpointFlags
 }
@@ -47,7 +47,7 @@ func (m *Manager) Start() error {
 		return err
 	}
 
-	m.controller = controller.NewController(m.Config.RealmLabel, m.Config.RealmValue, m.Config.TopoAddress, opts...)
+	m.controller = controller.NewController(m.Config.RealmOptions, m.Config.TopoAddress, opts...)
 	m.controller.Start()
 
 	// Start NB server

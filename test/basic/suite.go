@@ -76,7 +76,7 @@ func installChart(name string, registry string, wait bool) error {
 }
 
 func createPipelineConfig() error {
-	conn, err := libtest.CreateConnection("device-provisioner:5150", false)
+	conn, err := libtest.CreateConnection("onos-umbrella-device-provisioner:5150", false)
 	if err != nil {
 		return err
 	}

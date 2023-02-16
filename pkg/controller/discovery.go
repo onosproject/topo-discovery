@@ -6,6 +6,7 @@ package controller
 
 import (
 	"github.com/onosproject/onos-api/go/onos/topo"
+	"github.com/onosproject/onos-net-lib/pkg/realm"
 	"io"
 	"time"
 )
@@ -24,10 +25,10 @@ func (c *Controller) runInitialDiscoverySweep() {
 // Runs discovery sweep for all objects in our realm
 func (c *Controller) runFullDiscoverySweep() error {
 	log.Info("Starting full discovery sweep...")
-	if entities, err := c.topoClient.Query(c.ctx, &topo.QueryRequest{Filters: c.queryFilter()}); err == nil {
+	if entities, err := c.topoClient.Query(c.ctx, &topo.QueryRequest{Filters: queryFilter(c.realmOptions)}); err == nil {
 		for c.getState() != Stopped {
 			if entity, err := entities.Recv(); err == nil {
-				c.queue <- entity.Object
+				c.realmQueue <- entity.Object
 			} else {
 				if err == io.EOF {
 					log.Info("Completed full discovery sweep")
@@ -44,13 +45,20 @@ func (c *Controller) runFullDiscoverySweep() error {
 }
 
 // Returns filters for matching realm entities with StratumAgents and LocalAgents aspects.
-func (c *Controller) queryFilter(aspects ...string) *topo.Filters {
-	return c.realmOptions.QueryFilter("onos.topo.StratumAgents", "onos.topo.LocalAgents")
+func queryFilter(realmOptions *realm.Options) *topo.Filters {
+	return realmOptions.QueryFilter("onos.topo.StratumAgents", "onos.topo.LocalAgents")
 }
 
 // Setup watch for updates using onos-topo API
 func (c *Controller) prepareForMonitoring() {
-	filter := c.queryFilter()
+	c.monitorRealm(c.realmOptions, c.realmQueue)
+	if c.getState() == Monitoring && c.hasNeighborRealmOptions() {
+		c.monitorRealm(c.neighborRealmOptions, c.neighborRealmQueue)
+	}
+}
+
+func (c *Controller) monitorRealm(realmOptions *realm.Options, realmQueue chan<- *topo.Object) {
+	filter := queryFilter(realmOptions)
 	log.Infof("Starting to watch onos-topo via %+v", filter)
 	stream, err := c.topoClient.Watch(c.ctx, &topo.WatchRequest{Filters: filter})
 	if err != nil {
@@ -61,7 +69,7 @@ func (c *Controller) prepareForMonitoring() {
 			for c.getState() == Monitoring {
 				resp, err := stream.Recv()
 				if err == nil && isRelevant(resp.Event) {
-					c.queue <- &resp.Event.Object
+					realmQueue <- &resp.Event.Object
 				} else if err != nil {
 					log.Warnf("Watch stream has been stopped: %+v", err)
 					c.setStateIf(Monitoring, Disconnected)
@@ -95,7 +103,7 @@ func (c *Controller) monitorTopologyChanges() {
 
 // Discovery worker
 func (c *Controller) discover(workerID int) {
-	for object := range c.queue {
+	for object := range c.realmQueue {
 		c.lock.Lock()
 
 		// Is this object being worked on already?
@@ -111,6 +119,31 @@ func (c *Controller) discover(workerID int) {
 			c.linkReconciler.DiscoverLinks(object)
 			// c.discoverAtachedHosts(object)
 			log.Infof("%d: Finished work on %s", workerID, object.ID)
+
+			// We're done working on this object
+			c.lock.Lock()
+			delete(c.workingOn, object.ID)
+			c.lock.Unlock()
+		}
+	}
+}
+
+// Neighbor discovery worker
+func (c *Controller) discoverNeighbor(workerID int) {
+	for object := range c.neighborRealmQueue {
+		c.lock.Lock()
+
+		// Is this object being worked on already?
+		_, busy := c.workingOn[object.ID]
+		if !busy {
+			// If not, mark it as being worked on.
+			c.workingOn[object.ID] = object
+		}
+		c.lock.Unlock()
+		if !busy {
+			log.Infof("%d: Working on neighbor %s", workerID, object.ID)
+			c.linkReconciler.RegisterAgent(object)
+			log.Infof("%d: Finished work on neighbor %s", workerID, object.ID)
 
 			// We're done working on this object
 			c.lock.Lock()

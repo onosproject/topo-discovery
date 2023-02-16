@@ -19,9 +19,10 @@ var log = logging.GetLogger("manager")
 
 // Config is a manager configuration
 type Config struct {
-	RealmOptions *realm.Options
-	TopoAddress  string
-	ServiceFlags *cli.ServiceEndpointFlags
+	RealmOptions         *realm.Options
+	NeighborRealmOptions *realm.Options
+	TopoAddress          string
+	ServiceFlags         *cli.ServiceEndpointFlags
 }
 
 // Manager single point of entry for the topology discovery
@@ -47,7 +48,7 @@ func (m *Manager) Start() error {
 		return err
 	}
 
-	m.controller = controller.NewController(m.Config.RealmOptions, m.Config.TopoAddress, opts...)
+	m.controller = controller.NewController(m.Config.RealmOptions, m.Config.NeighborRealmOptions, m.Config.TopoAddress, opts...)
 	m.controller.Start()
 
 	// Start NB server

@@ -63,6 +63,20 @@ func (r *LinkReconciler) DiscoverLinks(object *topo.Object) {
 	r.updateDownedLinks(object, linkReport)
 }
 
+// RegisterAgent discovers agentID and binds it to the specified object ID
+func (r *LinkReconciler) RegisterAgent(object *topo.Object) {
+	report, err := r.linkDiscovery.GetIngressLinks(object, nil)
+	if err != nil {
+		log.Warnf("Unable to get agent ID from device link agent %s: %+v", object.ID, err)
+		return
+	}
+
+	// (Re)create the agent ID to device entity ID binding
+	r.lock.Lock()
+	defer r.lock.Unlock()
+	r.agentDevices[report.AgentID] = object
+}
+
 // LinkAdded handles link addition event
 func (r *LinkReconciler) LinkAdded(link *southbound.Link) {
 	r.reconcileLink(link, statusUp)

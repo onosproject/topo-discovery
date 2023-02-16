@@ -42,32 +42,35 @@ const (
 
 // Controller drives the topology discovery control logic
 type Controller struct {
-	realmOptions *realm.Options
-	state        State
+	realmOptions         *realm.Options
+	neighborRealmOptions *realm.Options
 
-	lock sync.RWMutex
+	state State
 
+	lock        sync.RWMutex
 	topoAddress string
 	topoOpts    []grpc.DialOption
 	conn        *grpc.ClientConn
 	topoClient  topo.TopoClient
 	ctx         context.Context
 	ctxCancel   context.CancelFunc
-	queue       chan *topo.Object
-	workingOn   map[topo.ID]*topo.Object
 
+	realmQueue         chan *topo.Object
+	neighborRealmQueue chan *topo.Object
+
+	workingOn      map[topo.ID]*topo.Object
 	portReconciler *PortReconciler
 	linkReconciler *LinkReconciler
 }
 
 // NewController creates a new topology discovery controller
-func NewController(realmOptions *realm.Options, topoAddress string, topoOpts ...grpc.DialOption) *Controller {
-	opts := append(topoOpts, grpc.WithBlock())
+func NewController(realmOptions *realm.Options, neighborRealmOptions *realm.Options, topoAddress string, topoOpts ...grpc.DialOption) *Controller {
 	return &Controller{
-		realmOptions: realmOptions,
-		topoAddress:  topoAddress,
-		topoOpts:     opts,
-		workingOn:    make(map[topo.ID]*topo.Object),
+		realmOptions:         realmOptions,
+		neighborRealmOptions: neighborRealmOptions,
+		topoAddress:          topoAddress,
+		topoOpts:             append(topoOpts, grpc.WithBlock()),
+		workingOn:            make(map[topo.ID]*topo.Object),
 	}
 }
 
@@ -75,10 +78,18 @@ func NewController(realmOptions *realm.Options, topoAddress string, topoOpts ...
 func (c *Controller) Start() {
 	log.Infof("Starting...")
 
-	// Crate discovery job queue and workers
-	c.queue = make(chan *topo.Object, queueDepth)
+	// Crate realm discovery job queue and workers
+	c.realmQueue = make(chan *topo.Object, queueDepth)
 	for i := 0; i < workerCount; i++ {
 		go c.discover(i)
+	}
+
+	if c.hasNeighborRealmOptions() {
+		// Crate neighbor realm queue and workers
+		c.neighborRealmQueue = make(chan *topo.Object, queueDepth)
+		for i := 0; i < workerCount; i++ {
+			go c.discoverNeighbor(i)
+		}
 	}
 
 	go c.run()
@@ -88,7 +99,10 @@ func (c *Controller) Start() {
 func (c *Controller) Stop() {
 	log.Infof("Stopping...")
 	c.setState(Stopped)
-	close(c.queue)
+	close(c.realmQueue)
+	if c.hasNeighborRealmOptions() {
+		close(c.neighborRealmQueue)
+	}
 }
 
 // Get the current operational state
@@ -157,4 +171,9 @@ func (c *Controller) waitForTopoConnection() {
 			c.pauseIf(Disconnected, connectionRetryPause)
 		}
 	}
+}
+
+// Returns true if the neighbor realm value has been specified
+func (c *Controller) hasNeighborRealmOptions() bool {
+	return c.neighborRealmOptions.Value != ""
 }

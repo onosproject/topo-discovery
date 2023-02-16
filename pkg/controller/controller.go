@@ -42,11 +42,12 @@ const (
 
 // Controller drives the topology discovery control logic
 type Controller struct {
-	realmOptions *realm.Options
-	state        State
+	realmOptions         *realm.Options
+	neighborRealmOptions *realm.Options
 
-	lock sync.RWMutex
+	state State
 
+	lock        sync.RWMutex
 	topoAddress string
 	topoOpts    []grpc.DialOption
 	conn        *grpc.ClientConn
@@ -54,20 +55,20 @@ type Controller struct {
 	ctx         context.Context
 	ctxCancel   context.CancelFunc
 	queue       chan *topo.Object
-	workingOn   map[topo.ID]*topo.Object
 
+	workingOn      map[topo.ID]*topo.Object
 	portReconciler *PortReconciler
 	linkReconciler *LinkReconciler
 }
 
 // NewController creates a new topology discovery controller
-func NewController(realmOptions *realm.Options, topoAddress string, topoOpts ...grpc.DialOption) *Controller {
-	opts := append(topoOpts, grpc.WithBlock())
+func NewController(realmOptions *realm.Options, neighborRealmOptions *realm.Options, topoAddress string, topoOpts ...grpc.DialOption) *Controller {
 	return &Controller{
-		realmOptions: realmOptions,
-		topoAddress:  topoAddress,
-		topoOpts:     opts,
-		workingOn:    make(map[topo.ID]*topo.Object),
+		realmOptions:         realmOptions,
+		neighborRealmOptions: neighborRealmOptions,
+		topoAddress:          topoAddress,
+		topoOpts:             append(topoOpts, grpc.WithBlock()),
+		workingOn:            make(map[topo.ID]*topo.Object),
 	}
 }
 

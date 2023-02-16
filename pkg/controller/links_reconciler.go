@@ -78,6 +78,10 @@ func (r *LinkReconciler) LinkDeleted(link *southbound.Link) {
 func (r *LinkReconciler) reconcileLink(link *southbound.Link, status string) {
 	// Start by resolving the ingress and egress devices
 	ingressDevice, egressDevice := r.resolveDevices(link)
+	if ingressDevice == nil {
+		return
+	}
+
 	if egressDevice == nil {
 		// If the egress device is now yet resolved, add the link to its pending links
 		r.lock.Lock()

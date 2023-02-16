@@ -129,8 +129,11 @@ func (ld *gNMILinkDiscovery) getAgentContext(object *topo.Object, listener Ingre
 			log.Warnf("Unable to connect to Stratum link local agent gNMI %s: %+v", object.ID, err)
 			return nil, err
 		}
+	}
 
+	if ac.agentID == "" {
 		// Get the agent ID
+		var err error
 		if ac.agentID, err = getAgentID(ac.agent); err != nil {
 			log.Warnf("Unable to retrieve agent ID for %s: %+v", ac.object.ID, err)
 			return nil, err
@@ -155,19 +158,23 @@ func getAgentID(device *stratum.GNMI) (string, error) {
 func (ac *agentContext) processLinkNotification(notification *gnmi.Notification, links map[uint32]*Link) {
 	var link *Link
 	for _, update := range notification.Update {
-		port := getPortNumber(update.Path)
-		if port == 0 {
-			continue
-		}
-		link = ac.getLink(links, port)
-		last := len(update.Path.Elem) - 1
-		switch update.Path.Elem[last].Name {
-		case "egress-port":
-			link.EgressPort = uint32(update.Val.GetIntVal())
-		case "egress-device":
-			link.EgressDevice = update.Val.GetStringVal()
-		case "create-time":
-			link.CreateTime = update.Val.GetUintVal()
+		if update.Path.Elem[1].Name == "link" { // FIXME elsewhere: this is needed to only pick-up link updates
+			port := getPortNumber(update.Path)
+			if port == 0 {
+				continue
+			}
+			link = ac.getLink(links, port)
+			if link != nil {
+				last := len(update.Path.Elem) - 1
+				switch update.Path.Elem[last].Name {
+				case "egress-port":
+					link.EgressPort = uint32(update.Val.GetIntVal())
+				case "egress-device":
+					link.EgressDevice = update.Val.GetStringVal()
+				case "create-time":
+					link.CreateTime = update.Val.GetUintVal()
+				}
+			}
 		}
 	}
 }
@@ -175,7 +182,7 @@ func (ac *agentContext) processLinkNotification(notification *gnmi.Notification,
 func getPortNumber(path *gnmi.Path) uint32 {
 	port, err := strconv.ParseInt(path.Elem[1].Key["port"], 10, 32)
 	if err != nil {
-		log.Warnf("Key 'port' is not a number: %+v", err)
+		log.Warnf("Key 'port' is not a number on %+v: %+v", path.Elem[1], err)
 		return 0
 	}
 	return uint32(port)
@@ -186,6 +193,16 @@ func (ac *agentContext) getLink(links map[uint32]*Link, port uint32) *Link {
 	if !ok {
 		link = &Link{IngressDevice: ac.agentID, IngressPort: port}
 		links[port] = link
+	}
+
+	if link.IngressDevice == "" {
+		// If the link we found has no ingress device set, and there is no agentID yet to update it with, bail
+		if ac.agentID == "" {
+			return nil
+		}
+
+		// Otherwise update the agent ID
+		link.IngressDevice = ac.agentID
 	}
 	return link
 }

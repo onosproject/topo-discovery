@@ -30,7 +30,7 @@ func main() {
 	}
 	realm.AddRealmFlags(cmd, "discovery")
 	cmd.Flags().String(neighborRealmLabelFlag, "role", "label used to find devices in neighboring realms")
-	cmd.Flags().String(neighborRealmValueFlag, "spine", "value of the realm label of devices in the neighboring realms")
+	cmd.Flags().String(neighborRealmValueFlag, "", "value of the realm label of devices in the neighboring realms")
 	cmd.Flags().String(topoAddressFlag, defaultTopoAddress, "address:port or just :port of the onos-topo service")
 	cli.AddServiceEndpointFlags(cmd, "discovery gRPC")
 	cli.Run(cmd)

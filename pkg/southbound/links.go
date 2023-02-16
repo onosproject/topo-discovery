@@ -77,29 +77,31 @@ func (ld *gNMILinkDiscovery) GetIngressLinks(object *topo.Object, listener Ingre
 
 	report := &LinkReport{AgentID: ac.agentID, Links: make(map[uint32]*Link)}
 
-	// Get the list of links
-	resp, err := ac.agent.Client.Get(ac.agent.Context, &gnmi.GetRequest{
-		Path: []*gnmi.Path{gnmiutils.ToPath("state/link[port=...]")},
-	})
-	if err != nil {
-		return nil, err
+	// If listeners has been specified, do the link discovery; otherwise, we just wanted the agent ID
+	if listener != nil {
+		// Get the list of links
+		resp, err := ac.agent.Client.Get(ac.agent.Context, &gnmi.GetRequest{
+			Path: []*gnmi.Path{gnmiutils.ToPath("state/link[port=...]")},
+		})
+		if err != nil {
+			return nil, err
+		}
+		if len(resp.Notification) == 0 {
+			return nil, errors.NewInvalid("no link data received")
+		}
+
+		log.Debugf("%s: Got links: %+v", object.ID, resp.Notification)
+		for _, notification := range resp.Notification {
+			ac.processLinkNotification(notification, report.Links)
+		}
+
+		ac.lock.Lock()
+		ac.report = report
+		ac.lock.Unlock()
+
+		// Once links are discovered kick off subscription-base link monitor, if not started yet
+		ac.startMonitor()
 	}
-	if len(resp.Notification) == 0 {
-		return nil, errors.NewInvalid("no link data received")
-	}
-
-	log.Debugf("%s: Got links: %+v", object.ID, resp.Notification)
-	for _, notification := range resp.Notification {
-		ac.processLinkNotification(notification, report.Links)
-	}
-
-	ac.lock.Lock()
-	ac.report = report
-	ac.lock.Unlock()
-
-	// Once links are discovered kick off subscription-base link monitor, if not started yet
-	ac.startMonitor()
-
 	return report, nil
 }
 

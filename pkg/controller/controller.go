@@ -61,6 +61,7 @@ type Controller struct {
 	workingOn      map[topo.ID]*topo.Object
 	portReconciler *PortReconciler
 	linkReconciler *LinkReconciler
+	hostReconciler *HostReconciler
 }
 
 // NewController creates a new topology discovery controller
@@ -164,6 +165,7 @@ func (c *Controller) waitForTopoConnection() {
 			c.ctx, c.ctxCancel = context.WithCancel(context.Background())
 			c.portReconciler = NewPortReconciler(c.ctx, c.topoClient)
 			c.linkReconciler = NewLinkReconciler(c.ctx, c.topoClient)
+			c.hostReconciler = NewHostReconciler(c.ctx, c.topoClient)
 			c.setState(Connected)
 			log.Infof("Connected")
 		} else {

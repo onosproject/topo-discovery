@@ -9,7 +9,6 @@ import (
 	"github.com/onosproject/onos-api/go/onos/topo"
 	"github.com/onosproject/topo-discovery/pkg/southbound"
 	"strconv"
-	"sync"
 	"time"
 )
 
@@ -19,7 +18,6 @@ type HostReconciler struct {
 	hostDiscovery southbound.HostDiscovery
 	topoClient    topo.TopoClient
 	ctx           context.Context
-	lock          sync.RWMutex
 }
 
 // NewHostReconciler creates a new host reconciler context

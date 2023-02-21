@@ -23,10 +23,6 @@ type HostReconciler struct {
 
 	// Map of agent-id to topo object required to resolve link reports to a device
 	agentDevices map[string]*topo.Object
-
-	// Map of agent-id to a list of links that reference that agent ID, but cannot be
-	// resolved yet because that agent-id has not yet been registered
-	pendingHosts map[string][]*southbound.Host
 }
 
 // NewHostReconciler creates a new host reconciler context
@@ -35,7 +31,6 @@ func NewHostReconciler(ctx context.Context, topoClient topo.TopoClient) *HostRec
 		topoClient:    topoClient,
 		ctx:           ctx,
 		agentDevices:  make(map[string]*topo.Object),
-		pendingHosts:  make(map[string][]*southbound.Host),
 		hostDiscovery: southbound.NewGNMIHostDiscovery(),
 	}
 }
@@ -105,31 +100,10 @@ func (r *HostReconciler) registerReport(object *topo.Object, report *southbound.
 	for _, host := range report.Hosts {
 		if _, ok := r.agentDevices[host.MAC]; ok {
 			hosts = append(hosts, host)
-		} else {
-			r.addToPendingHosts(host)
 		}
 	}
 
-	// Now check if there are any pending hosts for the reported agent ID
-	pendingHosts, ok := r.pendingHosts[report.AgentID]
-	if ok {
-		// If so, add them to the hosts to be processed and remove them from the pending hosts map
-		hosts = append(hosts, pendingHosts...)
-		delete(r.pendingHosts, report.AgentID)
-	}
-
 	return hosts
-}
-
-// Adds the given southbound host to the list of pending hosts for its MAC
-func (r *HostReconciler) addToPendingHosts(host *southbound.Host) {
-	pending, ok := r.pendingHosts[host.MAC]
-	if !ok {
-		pending = []*southbound.Host{host}
-	} else {
-		pending = append(pending, host)
-	}
-	r.pendingHosts[host.MAC] = pending
 }
 
 // Creates host topo object and its relation

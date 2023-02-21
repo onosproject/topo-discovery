@@ -93,7 +93,7 @@ func (r *HostReconciler) createHost(hostID topo.ID, ipAddr topo.IPAddress, host 
 	}
 
 	portID := topo.ID(strconv.FormatUint(uint64(host.Port), 10))
-	originates := topo.NewRelation(portID, hostID, topo.OriginatesKind)
+	originates := topo.NewRelation(portID, hostID, topo.ConnectionKind)
 	if _, err = r.topoClient.Create(r.ctx, &topo.CreateRequest{Object: originates}); err != nil {
 		log.Warnf("Unable to create originates relation for host %s: %+v", hostID, err)
 		return

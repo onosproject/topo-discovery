@@ -117,7 +117,7 @@ func (c *Controller) discover(workerID int) {
 			log.Infof("%d: Working on %s", workerID, object.ID)
 			c.portReconciler.DiscoverPorts(object)
 			c.linkReconciler.DiscoverLinks(object)
-			// c.discoverAtachedHosts(object)
+			c.hostReconciler.DiscoverHosts(object)
 			log.Infof("%d: Finished work on %s", workerID, object.ID)
 
 			// We're done working on this object

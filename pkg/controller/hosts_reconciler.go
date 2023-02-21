@@ -40,8 +40,6 @@ func (r *HostReconciler) DiscoverHosts(object *topo.Object) {
 		return
 	}
 
-	r.lock.Lock()
-	defer r.lock.Unlock()
 	// process all hosts from the report
 	for _, host := range hostReport.Hosts {
 		r.reconcileHost(host)

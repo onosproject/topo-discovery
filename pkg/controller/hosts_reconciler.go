@@ -6,6 +6,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"github.com/onosproject/onos-api/go/onos/topo"
 	"github.com/onosproject/topo-discovery/pkg/southbound"
 	"strconv"
@@ -40,25 +41,25 @@ func (r *HostReconciler) DiscoverHosts(object *topo.Object) {
 
 	// process all hosts from the report
 	for _, host := range hostReport.Hosts {
-		r.reconcileHost(host)
+		r.reconcileHost(host, hostReport.AgentID)
 	}
 }
 
 // HostAdded handles host addition event
-func (r *HostReconciler) HostAdded(host *southbound.Host) {
-	r.reconcileHost(host)
+func (r *HostReconciler) HostAdded(host *southbound.Host, agentID string) {
+	r.reconcileHost(host, agentID)
 }
 
 // HostDeleted handles host deletion event
-func (r *HostReconciler) HostDeleted(host *southbound.Host) {
+func (r *HostReconciler) HostDeleted(host *southbound.Host, agentID string) {
 	host.CreateTime = uint64(time.Now().UnixNano())
-	r.reconcileHost(host)
+	r.reconcileHost(host, agentID)
 }
 
 // Reconciles the specified southbound host against its topology entity counterpart
-func (r *HostReconciler) reconcileHost(host *southbound.Host) {
+func (r *HostReconciler) reconcileHost(host *southbound.Host, agentID string) {
 	// first, compose DeviceMAC/Port ID
-	hostID := topo.ID(host.MAC + "/" + strconv.FormatUint(uint64(host.Port), 10))
+	hostID := topo.ID(fmt.Sprintf("%s/%d/%s", agentID, host.Port, host.MAC))
 
 	//composing IP address
 	ipAddr := topo.IPAddress{
@@ -78,15 +79,15 @@ func (r *HostReconciler) reconcileHost(host *southbound.Host) {
 
 // Creates host topo object and its relation
 func (r *HostReconciler) createHost(hostID topo.ID, ipAddr topo.IPAddress, host *southbound.Host) {
-	hostAspect := &topo.NetworkInterface{MacDevicePort: host.MAC + "/" + strconv.FormatUint(uint64(host.Port), 10),
-		Ip: &ipAddr}
+	// FIXME: NetworkInterface should just have MAC field
+	hostAspect := &topo.NetworkInterface{MacDevicePort: host.MAC, Ip: &ipAddr}
 	object, err := topo.NewEntity(hostID, topo.HostKind).WithAspects(hostAspect)
 	if err != nil {
 		log.Warnf("Unable to allocate host %s: %+v", hostID, err)
 		return
 	}
 	// ToDo - where/how can I obtain labels?? Do I need it at all?
-	//object.Labels = labels
+	//object.Labels = labels // This should be passed in and should come from the connected device entity labels
 	if _, err = r.topoClient.Create(r.ctx, &topo.CreateRequest{Object: object}); err != nil {
 		log.Warnf("Unable to create host %s: %+v", hostID, err)
 		return

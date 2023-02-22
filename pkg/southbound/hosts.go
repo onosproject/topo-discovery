@@ -31,8 +31,8 @@ type HostReport struct {
 
 // HostListener is an abstraction of an entity capable of handling host changes
 type HostListener interface {
-	HostAdded(host *Host)
-	HostDeleted(host *Host)
+	HostAdded(host *Host, agentID string)
+	HostDeleted(host *Host, agentID string)
 }
 
 // HostDiscovery is an abstraction of an entity capable of discovering hosts
@@ -140,24 +140,26 @@ func (ld *gNMIHostDiscovery) getHostContext(object *topo.Object, listener HostLi
 func (hc *hostContext) processHostNotification(notification *gnmi.Notification, hosts map[string]*Host) {
 	var host *Host
 	for _, update := range notification.Update {
-		mac := getMacAddress(update.Path)
-		host = hc.getHost(hosts, mac)
-		last := len(update.Path.Elem) - 1
-		switch update.Path.Elem[last].Name {
-		case "port":
-			host.Port = uint32(update.Val.GetIntVal())
-		case "ip-address":
-			host.IP = update.Val.GetStringVal()
-		case "create-time":
-			host.CreateTime = update.Val.GetUintVal()
+		if update.Path.Elem[1].Name == "host" { // FIXME elsewhere: this is needed to only pick-up host updates
+			mac := getMacAddress(update.Path)
+			host = hc.getHost(hosts, mac)
+			last := len(update.Path.Elem) - 1
+			switch update.Path.Elem[last].Name {
+			case "port":
+				host.Port = uint32(update.Val.GetIntVal())
+			case "ip-address":
+				host.IP = update.Val.GetStringVal()
+			case "create-time":
+				host.CreateTime = update.Val.GetUintVal()
+			}
 		}
 	}
 }
 
 func getMacAddress(path *gnmi.Path) string {
 	mac, ok := path.Elem[1].Key["mac"]
-	if ok {
-		log.Errorf("Key 'mac' was not found: %+v", ok)
+	if !ok {
+		log.Errorf("Key 'mac' was not found on %+v", path.Elem[1])
 		return ""
 	}
 	return mac
@@ -232,7 +234,7 @@ func (hc *hostContext) processHostResponse(resp *gnmi.SubscribeResponse) {
 		mac := getMacAddress(path)
 		if host := hc.getHost(hc.report.Hosts, mac); host != nil {
 			delete(hc.report.Hosts, mac) // update the most recent report by deleting this host
-			hc.listener.HostDeleted(host)
+			hc.listener.HostDeleted(host, hc.agentID)
 		}
 	}
 
@@ -241,6 +243,6 @@ func (hc *hostContext) processHostResponse(resp *gnmi.SubscribeResponse) {
 	hc.processHostNotification(resp.GetUpdate(), hosts)
 	for _, host := range hosts {
 		hc.report.Hosts[host.MAC] = host // update the most recent report with this new host
-		hc.listener.HostAdded(host)
+		hc.listener.HostAdded(host, hc.agentID)
 	}
 }

@@ -121,15 +121,17 @@ func (ld *gNMIHostDiscovery) getHostContext(object *topo.Object, listener HostLi
 			return nil, err
 		}
 
+		log.Infof("Connecting to the object %s with an endpoint %v\n", string(object.ID), localAgents)
 		// Connect to the device's host local agent using gNMI
-		ac.agent, err = stratum.NewGNMI(string(object.ID), localAgents.HostAgentEndpoint, true)
+		ac.agent, err = stratum.NewGNMI(string(object.ID), localAgents.LinkAgentEndpoint, true)
 		if err != nil {
 			log.Warnf("Unable to connect to Stratum host local agent gNMI %s: %+v", object.ID, err)
 			return nil, err
 		}
 
 		// Get the agent ID
-		if ac.agentID, err = getAgentID(ac.agent); err != nil {
+		ac.agentID, err = getAgentID(ac.agent)
+		if ac.agentID == "" || err != nil {
 			log.Warnf("Unable to retrieve agent ID for %s: %+v", ac.object.ID, err)
 			return nil, err
 		}
@@ -186,7 +188,7 @@ func (hc *hostContext) startMonitor() {
 // Stops the host monitor
 func (hc *hostContext) stopMonitor() {
 	if hc.ctxCancel != nil {
-		log.Infof("Stopping link monitor...")
+		log.Infof("Stopping host monitor...")
 		hc.ctxCancel()
 		hc.ctxCancel = nil
 	}

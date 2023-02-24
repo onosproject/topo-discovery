@@ -79,15 +79,12 @@ func (r *HostReconciler) reconcileHost(host *southbound.Host, agentID string) {
 
 // Creates host topo object and its relation
 func (r *HostReconciler) createHost(hostID topo.ID, ipAddr topo.IPAddress, host *southbound.Host) {
-	// FIXME: NetworkInterface should just have MAC field
 	hostAspect := &topo.NetworkInterface{MacDevicePort: host.MAC, Ip: &ipAddr}
 	object, err := topo.NewEntity(hostID, topo.HostKind).WithAspects(hostAspect)
 	if err != nil {
 		log.Warnf("Unable to allocate host %s: %+v", hostID, err)
 		return
 	}
-	// ToDo - where/how can I obtain labels?? Do I need it at all?
-	//object.Labels = labels // This should be passed in and should come from the connected device entity labels
 	if _, err = r.topoClient.Create(r.ctx, &topo.CreateRequest{Object: object}); err != nil {
 		log.Warnf("Unable to create host %s: %+v", hostID, err)
 		return

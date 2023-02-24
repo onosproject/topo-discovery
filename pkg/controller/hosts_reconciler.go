@@ -79,7 +79,7 @@ func (r *HostReconciler) reconcileHost(host *southbound.Host, agentID string) {
 
 // Creates host topo object and its relation
 func (r *HostReconciler) createHost(hostID topo.ID, ipAddr topo.IPAddress, host *southbound.Host) {
-	hostAspect := &topo.NetworkInterface{MacDevicePort: host.MAC, Ip: &ipAddr}
+	hostAspect := &topo.NetworkInterface{Mac: host.MAC, Ip: &ipAddr}
 	object, err := topo.NewEntity(hostID, topo.HostKind).WithAspects(hostAspect)
 	if err != nil {
 		log.Warnf("Unable to allocate host %s: %+v", hostID, err)

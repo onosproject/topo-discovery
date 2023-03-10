@@ -137,6 +137,7 @@ func addSwitch(t *testing.T, discoClient discovery.DiscoveryServiceClient, name 
 			PipelineConfigID:  pipelineConfigID,
 			ChassisConfigID:   chassisConfigID,
 			LinkAgentEndpoint: linkAgentEndpoint,
+			HostAgentEndpoint: linkAgentEndpoint, // Same agent for both
 		}})
 	assert.NoError(t, err)
 }
